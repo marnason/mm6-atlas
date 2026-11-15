@@ -1,6 +1,10 @@
 const pages = window.ATLAS_PAGES || [];
 const regions = [...new Set(pages.map(page => page.region))].sort();
-const positions = {'Sweet Water':[8,15],'Kriegspire':[29,24],'White Cap':[49,12],'Silver Cove':[73,21],'Eel Infested Waters':[91,14],'Paradise Valley':[8,47],'Blackshire':[27,45],'Free Haven':[50,44],'Bootleg Bay':[73,45],'Mist':[90,49],'Hermits Isle':[6,90],'Dragonsand':[27,75],'Mire Of The Damned':[49,77],'Castle Ironfist':[70,76],'New Sorpigal':[88,85]};
+const mapRegions = [
+  'Sweet Water','Kriegspire','White Cap','Silver Cove','Eel Infested Waters',
+  'Paradise Valley','Blackshire','Free Haven','Bootleg Bay','Mist',
+  'Hermits Isle','Dragonsand','Mire Of The Damned','Castle Ironfist','New Sorpigal'
+];
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const slug = region => region.toLowerCase().replace(/[^a-z0-9]+/g, '-');
@@ -54,8 +58,8 @@ function heading(eyebrow, title, subhead = '', action = '') {
   return '<div class="view-heading"><div><p class="eyebrow">' + esc(eyebrow) + '</p><h1>' + esc(title) + '</h1>' + (subhead ? '<p class="subhead">' + esc(subhead) + '</p>' : '') + '</div>' + action + '</div>';
 }
 function renderMap() {
-  const pins = regions.map(region => {const [x,y] = positions[region] || [50,50]; return '<a class="pin" href="' + regionURL(region) + '" data-link aria-label="Explore ' + esc(region) + '" style="left:' + x + '%;top:' + y + '%"><span>' + esc(region) + '</span></a>';}).join('');
-  return heading('Might and Magic VI · Field companion','Explore Enroth','Pick a region on the map or open the region index. ' + pages.length + ' recovered guides are available offline.','<a class="text-link" href="#/regions" data-link>Browse all regions →</a>') + '<div class="map-layout"><div class="map-canvas"><div class="map-surface"><img src="assets/places/World/big.jpg" alt="Map of the world of Enroth" draggable="false"><div class="map-pins">' + pins + '</div></div><div class="compass" aria-hidden="true">✦<small>N</small></div></div><aside class="map-aside"><p class="eyebrow">Atlas index</p><h2>Where to?</h2><p>Choose a marker to browse its towns, dungeons, and notes.</p><div class="featured-regions">' + ['New Sorpigal','Castle Ironfist','Free Haven','Mist'].map(regionItem).join('') + '</div><a class="aside-link" href="#/regions" data-link>All ' + regions.length + ' regions →</a></aside></div>';
+  const zones = mapRegions.map(region => '<a class="map-zone" href="' + regionURL(region) + '" data-link aria-label="Explore ' + esc(region) + '"><span>' + esc(region) + '</span></a>').join('');
+  return heading('Might and Magic VI · Field companion','Explore Enroth','Select any square to open its region. ' + pages.length + ' recovered guides are available offline.','<a class="text-link" href="#/regions" data-link>Browse all regions →</a>') + '<div class="map-layout"><div class="map-canvas"><div class="map-surface"><img src="assets/places/World/big.jpg" alt="Map of the world of Enroth" draggable="false"><div class="map-zones" aria-label="Map regions">' + zones + '</div></div></div><aside class="map-aside"><p class="eyebrow">Atlas index</p><h2>Where to?</h2><p>Each square opens its matching region and guide list.</p><div class="featured-regions">' + ['New Sorpigal','Castle Ironfist','Free Haven','Mist'].map(regionItem).join('') + '</div><a class="aside-link" href="#/regions" data-link>All ' + regions.length + ' regions →</a></aside></div>';
 }
 function renderRegions() { return heading('Explore by place','Regions of Enroth',regions.length + ' regions. Choose one to see its recovered guides.') + '<div class="region-grid">' + regions.map(regionItem).join('') + '</div>'; }
 function guideRow(page, index) {
