@@ -35,9 +35,9 @@ for (const file of files) {
   if (relative === 'places.html') continue;
   const segments = relative.split('/');
   const region = titleCase(segments[0]);
-  const heading = [...html.matchAll(/<h[1-4][^>]*>([\s\S]*?)<\/h[1-4]>/gi)].map(m => text(m[1])).find(Boolean);
-  const rawTitle = text(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? '');
-  const title = heading || rawTitle.replace(/Magic Grounds\s*[-:]?\s*/i, '').trim() || (segments.length === 2 && /location\.html/i.test(segments[1]) ? region : titleCase(path.basename(file)));
+  const fontTitle = text(html.match(/<font[^>]*size\s*=\s*["']?\+2[^>]*>([\s\S]*?)<\/font>/i)?.[1] ?? '');
+  const placeTitle = fontTitle.includes(':') ? fontTitle.split(':').slice(1).join(':').trim() : fontTitle;
+  const title = /location\.html/i.test(segments.at(-1)) ? region : placeTitle || titleCase(path.basename(file));
   const images = [...html.matchAll(/<img[^>]+src=["']([^"']+)["']/gi)]
     .map(m => path.posix.normalize(path.posix.join(path.posix.dirname(relative), decode(m[1]).replace(/\\/g, '/'))))
     .filter(src => !src.startsWith('..') && !src.includes('mglogo'));
@@ -46,7 +46,7 @@ for (const file of files) {
   pages.push({ id: relative.replace(/\.html?$/i, '').replace(/[^a-z0-9]+/gi, '-').toLowerCase(), region, title, body, images: [...new Set(images)], sourcePath: relative });
 }
 
-pages.sort((a, b) => a.region.localeCompare(b.region) || (a.sourcePath.endsWith('location.html') ? -1 : 1) || a.title.localeCompare(b.title));
+pages.sort((a, b) => a.region.localeCompare(b.region) || Number(b.sourcePath.endsWith('location.html')) - Number(a.sourcePath.endsWith('location.html')) || a.title.localeCompare(b.title));
 await writeFile(path.join(out, 'data.js'), `window.ATLAS_PAGES=${JSON.stringify(pages)};\n`);
 const offlineFiles = (await walk(out))
   .filter(file => !file.endsWith('sw.js'))

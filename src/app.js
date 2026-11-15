@@ -1,56 +1,105 @@
 const pages = window.ATLAS_PAGES || [];
 const regions = [...new Set(pages.map(page => page.region))].sort();
-const positions = {
-  'Sweet Water':[26,13],'Kriegspire':[42,20],'White Cap':[61,14],'Silver Cove':[77,25],'Eel Infested Waters':[88,42],
-  'Paradise Valley':[18,31],'Blackshire':[35,38],'Free Haven':[52,39],'Bootleg Bay':[70,44],'Mist':[85,58],
-  'Hermits Isle':[12,55],'Dragonsand':[28,66],'Mire Of The Damned':[46,63],'Castle Ironfist':[61,66],'New Sorpigal':[77,76]
-};
+const positions = {'Sweet Water':[8,15],'Kriegspire':[29,24],'White Cap':[49,12],'Silver Cove':[73,21],'Eel Infested Waters':[91,14],'Paradise Valley':[8,47],'Blackshire':[27,45],'Free Haven':[50,44],'Bootleg Bay':[73,45],'Mist':[90,49],'Hermits Isle':[6,90],'Dragonsand':[27,75],'Mire Of The Damned':[49,77],'Castle Ironfist':[70,76],'New Sorpigal':[88,85]};
 const $ = selector => document.querySelector(selector);
-const escapeHTML = value => value.replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
-let query = '', activeRegion = 'All';
+const esc = value => String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+const slug = region => region.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+const regionURL = region => '#/region/' + slug(region);
+const guideURL = page => '#/guide/' + encodeURIComponent(page.id);
+const regionBySlug = new Map(regions.map(region => [slug(region), region]));
+const pageById = new Map(pages.map(page => [page.id, page]));
+let route = {name:'map'}, searchTerm = '', searchLimit = 18;
 
-$('#page-count').textContent = pages.length;
-$('#region-count').textContent = regions.length;
-
-function openPage(page) {
-  const images = page.images.map(src => `<img src="assets/places/${encodeURI(src)}" alt="Map or scene from ${escapeHTML(page.title)}" loading="lazy">`).join('');
-  $('#detail-content').innerHTML = `<header class="detail-head"><p class="eyebrow">${escapeHTML(page.region)}</p><h2>${escapeHTML(page.title)}</h2></header><div class="detail-body">${images ? `<div class="gallery">${images}</div>` : ''}<pre>${escapeHTML(page.body)}</pre><a class="source-link" href="https://user.xmission.com/~tnelson/mm6/gameplay/places/${encodeURI(page.sourcePath)}" target="_blank" rel="noopener">View the archived source page ↗</a></div>`;
-  $('#detail').showModal();
-  history.replaceState(null, '', `#guide=${page.id}`);
+function parseRoute() {
+  const hash = location.hash.replace(/^#\/?/, '');
+  const [path, search = ''] = hash.split('?');
+  const [rawName, value] = path.split('/');
+  const name = rawName || 'map';
+  if (name === 'region' && regionBySlug.has(value)) return {name, region:regionBySlug.get(value)};
+  if (name === 'guide' && pageById.has(decodeURIComponent(value || ''))) return {name, page:pageById.get(decodeURIComponent(value))};
+  if (name === 'search') return {name, query:new URLSearchParams(search).get('q') || ''};
+  if (['map','regions','about'].includes(name)) return {name};
+  return {name:'not-found'};
 }
 
-function renderCards() {
-  const words = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
-  const results = pages.filter(page => (activeRegion === 'All' || page.region === activeRegion) && words.every(word => `${page.title} ${page.region} ${page.body}`.toLowerCase().includes(word)));
-  $('#result-note').textContent = `${results.length} ${results.length === 1 ? 'guide' : 'guides'} found${query ? ` for “${query}”` : ''}`;
-  $('#cards').innerHTML = results.length ? results.map((page, index) => `<button class="card" data-id="${page.id}"><span class="number">${String(index + 1).padStart(2,'0')}</span><h3>${escapeHTML(page.title)}</h3><p>${escapeHTML(page.body.slice(0,140))}${page.body.length > 140 ? '…' : ''}</p><footer>${escapeHTML(page.region)} · ${page.images.length} ${page.images.length === 1 ? 'map' : 'maps'}</footer></button>`).join('') : '<p class="empty">No passages match this search. Try a region, dungeon, or treasure name.</p>';
-  document.querySelectorAll('.card').forEach(card => card.addEventListener('click', () => openPage(pages.find(page => page.id === card.dataset.id))));
+function go(href, replace = false) {
+  if (location.hash === href) return render();
+  history[replace ? 'replaceState' : 'pushState']({atlas:true}, '', href);
+  render(true);
 }
 
-function setRegion(region, scroll = false) {
-  activeRegion = region;
-  document.querySelectorAll('#filters button').forEach(button => button.classList.toggle('active', button.dataset.region === region));
-  document.querySelectorAll('.pin').forEach(pin => pin.classList.toggle('active', pin.dataset.region === region));
-  const regionPages = pages.filter(page => page.region === region);
-  if (region !== 'All') $('#map-panel').innerHTML = `<p class="eyebrow">Selected region</p><h3>${escapeHTML(region)}</h3><p>${regionPages.length} recovered guides and locations.</p><div class="map-links">${regionPages.slice(0,7).map(page => `<button data-id="${page.id}">${escapeHTML(page.title)}</button>`).join('')}</div>`;
-  document.querySelectorAll('.map-links button').forEach(button => button.addEventListener('click', () => openPage(pages.find(page => page.id === button.dataset.id))));
-  renderCards();
-  if (scroll) $('#archive').scrollIntoView({behavior:'smooth'});
+const crumb = (label, href) => href ? '<a href="' + href + '" data-link>' + esc(label) + '</a>' : '<span aria-current="page">' + esc(label) + '</span>';
+function renderNavigation() {
+  const parts = [crumb('World map', route.name === 'map' ? null : '#/map')];
+  if (route.name === 'regions') parts.push(crumb('Regions'));
+  if (route.name === 'region') parts.push(crumb(route.region));
+  if (route.name === 'guide') parts.push(crumb(route.page.region, regionURL(route.page.region)), crumb(route.page.title));
+  if (route.name === 'search') parts.push(crumb('Search'));
+  if (route.name === 'about') parts.push(crumb('About'));
+  if (route.name === 'not-found') parts.push(crumb('Not found'));
+  $('#breadcrumbs').innerHTML = parts.join('<span class="crumb-separator" aria-hidden="true">/</span>');
+  $('#back-button').hidden = !history.state?.atlas;
+  document.querySelectorAll('.primary-nav a').forEach(link => {
+    const current = link.dataset.route === route.name || (route.name === 'region' && link.dataset.route === 'regions');
+    link.classList.toggle('active', current);
+    if (current) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
+  });
 }
 
-$('#filters').innerHTML = ['All', ...regions].map(region => `<button data-region="${region}" class="${region === 'All' ? 'active' : ''}">${region}</button>`).join('');
-document.querySelectorAll('#filters button').forEach(button => button.addEventListener('click', () => setRegion(button.dataset.region)));
-$('#map-pins').innerHTML = regions.map(region => { const [x,y] = positions[region] || [50,50]; return `<button class="pin" data-region="${region}" aria-label="Explore ${region}" style="left:${x}%;top:${y}%"><span>${region}</span></button>`; }).join('');
-document.querySelectorAll('.pin').forEach(pin => pin.addEventListener('click', () => setRegion(pin.dataset.region, true)));
-
-function setQuery(value) { query = value; $('#global-search').value = value; $('#archive-search').value = value; renderCards(); if (value) $('#archive').scrollIntoView({behavior:'smooth'}); }
-$('#global-search').addEventListener('input', event => setQuery(event.target.value));
-$('#archive-search').addEventListener('input', event => { query = event.target.value; $('#global-search').value = query; renderCards(); });
-document.addEventListener('keydown', event => { if (event.key === '/' && !/input|textarea/i.test(document.activeElement.tagName)) { event.preventDefault(); $('#global-search').focus(); } if (event.key === 'Escape' && $('#detail').open) $('#detail').close(); });
-$('.close').addEventListener('click', () => $('#detail').close());
-$('#detail').addEventListener('click', event => { if (event.target === $('#detail')) $('#detail').close(); });
-$('#detail').addEventListener('close', () => history.replaceState(null, '', '#archive'));
-renderCards();
-const linked = location.hash.match(/^#guide=(.+)$/)?.[1];
-if (linked) { const page = pages.find(item => item.id === linked); if (page) openPage(page); }
+function regionItem(region) {
+  const count = pages.filter(page => page.region === region).length;
+  return '<a class="region-item" href="' + regionURL(region) + '" data-link><span class="region-mark">✦</span><span>' + esc(region) + '</span><small>' + count + ' guides</small><span aria-hidden="true">↗</span></a>';
+}
+function heading(eyebrow, title, subhead = '', action = '') {
+  return '<div class="view-heading"><div><p class="eyebrow">' + esc(eyebrow) + '</p><h1>' + esc(title) + '</h1>' + (subhead ? '<p class="subhead">' + esc(subhead) + '</p>' : '') + '</div>' + action + '</div>';
+}
+function renderMap() {
+  const pins = regions.map(region => {const [x,y] = positions[region] || [50,50]; return '<a class="pin" href="' + regionURL(region) + '" data-link aria-label="Explore ' + esc(region) + '" style="left:' + x + '%;top:' + y + '%"><span>' + esc(region) + '</span></a>';}).join('');
+  return heading('Might and Magic VI · Field companion','Explore Enroth','Pick a region on the map or open the region index. ' + pages.length + ' recovered guides are available offline.','<a class="text-link" href="#/regions" data-link>Browse all regions →</a>') + '<div class="map-layout"><div class="map-canvas"><div class="map-surface"><img src="assets/places/World/big.jpg" alt="Map of the world of Enroth" draggable="false"><div class="map-pins">' + pins + '</div></div><div class="compass" aria-hidden="true">✦<small>N</small></div></div><aside class="map-aside"><p class="eyebrow">Atlas index</p><h2>Where to?</h2><p>Choose a marker to browse its towns, dungeons, and notes.</p><div class="featured-regions">' + ['New Sorpigal','Castle Ironfist','Free Haven','Mist'].map(regionItem).join('') + '</div><a class="aside-link" href="#/regions" data-link>All ' + regions.length + ' regions →</a></aside></div>';
+}
+function renderRegions() { return heading('Explore by place','Regions of Enroth',regions.length + ' regions. Choose one to see its recovered guides.') + '<div class="region-grid">' + regions.map(regionItem).join('') + '</div>'; }
+function guideRow(page, index) {
+  const excerpt = page.body.replace(/\s+/g,' ').slice(0,130);
+  return '<a class="guide-row" href="' + guideURL(page) + '" data-link><span class="guide-number">' + String(index + 1).padStart(2,'0') + '</span><span class="guide-summary"><strong>' + esc(page.title) + '</strong><small>' + esc(excerpt) + (page.body.length > 130 ? '…' : '') + '</small></span><span class="guide-meta">' + page.images.length + ' ' + (page.images.length === 1 ? 'image' : 'images') + '</span><span class="guide-arrow" aria-hidden="true">→</span></a>';
+}
+function renderRegion(region) {
+  const items = pages.filter(page => page.region === region);
+  return heading('Region · ' + items.length + ' guides',region,'Maps, locations, and field notes from the Magic Grounds archive.','<a class="text-link" href="#/regions" data-link>All regions →</a>') + '<div class="guide-list">' + items.map(guideRow).join('') + '</div>';
+}
+function renderGuide(page) {
+  const images = page.images.map(src => '<figure><img src="assets/places/' + encodeURI(src) + '" alt="Map or scene for ' + esc(page.title) + '" loading="lazy"><figcaption>' + esc(src.split('/').pop()) + '</figcaption></figure>').join('');
+  const siblings = pages.filter(item => item.region === page.region), index = siblings.findIndex(item => item.id === page.id), previous = siblings[index - 1], next = siblings[index + 1];
+  const pager = (item, label) => item ? '<a href="' + guideURL(item) + '" data-link><small>' + label + '</small><strong>' + esc(item.title) + '</strong></a>' : '<span></span>';
+  return '<article class="guide-view">' + heading(page.region + ' · Guide ' + (index + 1) + ' of ' + siblings.length,page.title,'','<a class="text-link" href="' + regionURL(page.region) + '" data-link>All ' + esc(page.region) + ' guides →</a>') + '<div class="guide-content">' + (images ? '<div class="image-gallery">' + images + '</div>' : '') + '<section class="guide-notes"><h2>Field notes</h2><p>' + esc(page.body).replace(/\n/g,'<br>') + '</p></section></div><div class="guide-source">Original: <a href="https://user.xmission.com/~tnelson/mm6/gameplay/places/' + encodeURI(page.sourcePath) + '" target="_blank" rel="noopener">Magic Grounds ↗</a></div><nav class="guide-pager" aria-label="Guide navigation">' + pager(previous,'← Previous guide') + pager(next,'Next guide →') + '</nav></article>';
+}
+function searchResults() {
+  const words = searchTerm.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  const matches = words.length ? pages.filter(page => words.every(word => (page.title + ' ' + page.region + ' ' + page.body).toLowerCase().includes(word))) : [];
+  $('#search-results').innerHTML = words.length ? '<p class="result-count">' + matches.length + ' ' + (matches.length === 1 ? 'guide' : 'guides') + ' found</p><div class="guide-list">' + (matches.slice(0,searchLimit).map(guideRow).join('') || '<p class="empty">No matches. Try a place, dungeon, or treasure name.</p>') + '</div>' + (matches.length > searchLimit ? '<button class="more-button" id="more-results" type="button">Show more results (' + (matches.length - searchLimit) + ' remaining)</button>' : '') : '<div class="search-prompt"><span>⌕</span><h2>Find a place or secret</h2><p>Search the titles and notes of all ' + pages.length + ' recovered guides.</p></div>';
+}
+function renderSearch() { return heading('Full archive search','Search the atlas','Find locations, dungeon notes, towns, and treasures across every region.') + '<div id="search-results"></div>'; }
+function renderAbout() { return heading('Preservation note','About this atlas') + '<div class="about-copy"><p>Enroth Atlas reorganizes the recovered Magic Grounds maps and notes into a compact field guide. All guide content and images are bundled for offline use once the site has been visited.</p><p>The archive contains ' + pages.length + ' searchable guides across ' + regions.length + ' regions. See the <a href="LICENSE.md">source credits and license</a> or <a href="https://github.com/marnason/mm6-atlas">project repository</a>.</p><p>This is an unofficial fan project and is not affiliated with Ubisoft or New World Computing.</p></div>'; }
+function render(moveFocus = false) {
+  route = parseRoute(); renderNavigation();
+  $('#search-input').value = route.name === 'search' ? route.query : '';
+  if (route.name === 'search') searchTerm = route.query;
+  const views = {map:renderMap,regions:renderRegions,region:()=>renderRegion(route.region),guide:()=>renderGuide(route.page),search:renderSearch,about:renderAbout};
+  $('#view').innerHTML = views[route.name]?.() || heading('Lost passage','Page not found') + '<a class="text-link" href="#/map" data-link>Return to the map →</a>';
+  if (route.name === 'search') searchResults();
+  const label = route.name === 'guide' ? route.page.title : route.name === 'region' ? route.region : route.name === 'map' ? 'World Map' : route.name[0].toUpperCase() + route.name.slice(1);
+  document.title = label + ' — Enroth Atlas';
+  if (moveFocus) {window.scrollTo(0,0); $('#view').focus({preventScroll:true});}
+}
+document.addEventListener('click', event => {
+  const link = event.target.closest('a[data-link], a[data-route]');
+  if (link && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0) {event.preventDefault(); go(link.getAttribute('href'));}
+  if (event.target.id === 'more-results') {searchLimit += 18; searchResults();}
+});
+$('#back-button').addEventListener('click', () => history.back());
+$('#quick-search').addEventListener('submit', event => {event.preventDefault(); searchLimit = 18; const q = $('#search-input').value.trim(); go(q ? '#/search?q=' + encodeURIComponent(q) : '#/search');});
+$('#search-input').addEventListener('input', event => {searchTerm = event.target.value; if (route.name === 'search') {searchLimit = 18; history.replaceState(history.state, '', searchTerm ? '#/search?q=' + encodeURIComponent(searchTerm) : '#/search'); searchResults();}});
+document.addEventListener('keydown', event => {if (event.key === '/' && !/input|textarea/i.test(document.activeElement.tagName)) {event.preventDefault(); $('#search-input').focus();}});
+window.addEventListener('popstate', () => render(true));
+window.addEventListener('hashchange', () => render(true));
+render();
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js');
