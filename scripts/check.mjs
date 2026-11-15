@@ -1,0 +1,16 @@
+import { access, readFile, readdir } from 'node:fs/promises';
+import path from 'node:path';
+const root = path.resolve(import.meta.dirname, '..');
+const dist = path.join(root, 'dist');
+for (const file of ['index.html', 'app.js', 'styles.css', 'data.js', 'sw.js', 'manifest.webmanifest']) await access(path.join(dist, file));
+const data = await readFile(path.join(dist, 'data.js'), 'utf8');
+const match = data.match(/^window\.ATLAS_PAGES=(.*);\s*$/s);
+if (!match) throw new Error('Invalid data bundle');
+const pages = JSON.parse(match[1]);
+if (pages.length < 70) throw new Error(`Expected a complete mirror; found ${pages.length} pages`);
+for (const page of pages) for (const image of page.images) await access(path.join(dist, 'assets/places', image));
+const serviceWorker = await readFile(path.join(dist, 'sw.js'), 'utf8');
+if (serviceWorker.includes('__PRECACHE__') || !serviceWorker.includes('assets/places/World/big.jpg')) throw new Error('Offline cache manifest was not generated');
+const assets = await readdir(path.join(dist, 'assets/places'));
+if (!assets.length) throw new Error('Missing mirrored assets');
+console.log(`Verified ${pages.length} pages and all ${pages.reduce((n, p) => n + p.images.length, 0)} referenced images.`);

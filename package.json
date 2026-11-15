@@ -1,0 +1,10 @@
+{
+  "name": "mm6-enroth-atlas",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "node scripts/check.mjs",
+    "test": "npm run build && npm run check"
+  }
+}
