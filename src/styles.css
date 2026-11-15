@@ -23,14 +23,19 @@
 .place-filters small{opacity:.7;margin-left:3px}
 .region-explorer{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:16px;align-items:start}
 .region-map-column{min-width:0}
-.region-map-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;color:var(--muted);font-size:.72rem;margin:0 0 9px}
-.zoom-button{border:1px solid var(--line);background:#fff8ea;color:var(--ink);padding:6px 9px;font-size:.7rem;white-space:nowrap}
-.region-map-scroll{width:100%;aspect-ratio:1;max-height:620px;overflow:auto;background:#142b32;border:1px solid var(--line)}
-.region-map-surface{position:relative;width:min(100%,620px);aspect-ratio:1;margin:auto}
-.region-map-surface.zoomed{width:1024px;max-width:none;margin:0}
+.region-map-toolbar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;color:var(--muted);font-size:.72rem;margin:0 0 9px}
+.map-zoom-controls{display:flex;align-items:center;gap:4px}
+.map-zoom-controls button{border:1px solid var(--line);background:#fff8ea;color:var(--ink);min-width:30px;height:28px;padding:2px 7px;font-size:.8rem}
+.map-zoom-controls button:disabled{opacity:.4;cursor:default}
+.map-zoom-controls output{min-width:42px;text-align:center;font-variant-numeric:tabular-nums}
+.region-map-scroll{width:min(100%,620px);aspect-ratio:1;overflow:hidden;background:#142b32;border:1px solid var(--line);margin-inline:auto;touch-action:none;cursor:zoom-in}
+.region-map-scroll.is-zoomed{cursor:grab}
+.region-map-scroll.is-zoomed:active{cursor:grabbing}
+.region-map-surface{position:relative;width:100%;height:100%;transform-origin:center center}
 .region-map-surface>img{display:block;width:100%;height:100%;object-fit:contain}
+.map-gesture-hint{text-align:center;color:var(--muted);font-size:.67rem;margin:7px 0 0}
 .poi-markers{position:absolute;inset:0}
-.poi-marker{position:absolute;z-index:2;display:grid;place-items:center;width:24px;height:24px;border:2px solid #fff3d9;border-radius:50%;transform:translate(-50%,-50%);background:#a85438;color:white;text-decoration:none;font-size:.58rem;font-weight:700;box-shadow:0 2px 7px #081b20a8}
+.poi-marker{position:absolute;z-index:2;display:grid;place-items:center;width:24px;height:24px;border:2px solid #fff3d9;border-radius:50%;transform:translate(-50%,-50%) scale(calc(1 / var(--map-zoom, 1)));background:#a85438;color:white;text-decoration:none;font-size:.58rem;font-weight:700;box-shadow:0 2px 7px #081b20a8}
 .poi-marker.poi-bonus,.poi-marker.poi-hint,.poi-marker.poi-objective{background:#7a6a2c}
 .poi-marker.poi-vendor,.poi-marker.poi-guild{background:#376b68}
 .poi-marker.poi-house,.poi-marker.poi-service,.poi-marker.poi-transport{background:#345b80}

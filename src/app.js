@@ -101,7 +101,7 @@ function placeRow(map, poi) {
 }
 function regionMap(map, points) {
   const markers = points.map((poi,index) => '<a class="poi-marker poi-' + esc(poi.t) + (route.selected?.id === poi.id ? ' selected' : '') + '" href="' + placeURL(map,poi) + '" data-link style="left:' + (poi.u * 100) + '%;top:' + (poi.v * 100) + '%" aria-label="' + esc(poi.n + ', ' + placeType(poi)) + (guideForPlace(map,poi) ? ', opens guide' : ', show details') + '" title="' + esc(poi.n) + '"' + (route.selected?.id === poi.id ? ' aria-current="location"' : '') + '><span>' + (index + 1) + '</span></a>').join('');
-  return '<div class="region-map-toolbar"><span>' + esc(map.sourceName) + ' · 1024 × 1024 map</span><button type="button" class="zoom-button" data-zoom>View at full size</button></div><div class="region-map-scroll"><div class="region-map-surface"><img src="' + map.image + '" alt="High-resolution map of ' + esc(map.sourceName) + '" loading="lazy"><div class="poi-markers">' + markers + '</div></div></div>';
+  return '<div class="region-map-toolbar"><span>' + esc(map.sourceName) + ' · 1024 × 1024 map</span><div class="map-zoom-controls" aria-label="Map zoom controls"><button type="button" data-map-zoom="out" aria-label="Zoom out" disabled>−</button><output aria-live="polite">100%</output><button type="button" data-map-zoom="in" aria-label="Zoom in">+</button><button type="button" data-map-zoom="reset" aria-label="Reset map zoom" disabled>Reset</button></div></div><div class="region-map-scroll" tabindex="0" role="group" aria-label="Zoomable map of ' + esc(map.sourceName) + '. Use the zoom controls, mouse wheel, or pinch to zoom; drag to pan."><div class="region-map-surface"><img src="' + map.image + '" alt="High-resolution map of ' + esc(map.sourceName) + '" loading="lazy" draggable="false"><div class="poi-markers">' + markers + '</div></div></div><p class="map-gesture-hint">Scroll or pinch to zoom · drag to pan</p>';
 }
 function renderRegion(region) {
   const items = pages.filter(page => page.region === region);
@@ -155,6 +155,91 @@ function searchResults() {
 }
 function renderSearch() { return heading('Full atlas search','Search the atlas','Find places, Artifacts, Relics, item buyers, and guides.') + '<div id="search-results"></div>'; }
 function renderAbout() { return heading('Preservation note','About this atlas') + '<div class="about-copy"><p>Enroth Atlas combines recovered Magic Grounds maps and notes with high-resolution region maps and location data exported from OpenYAMM. All site data and map images are bundled for offline use once the site has been visited.</p><p>The archive contains ' + pages.length + ' searchable guides and ' + allPlaces.length + ' mapped places across ' + regions.length + ' regions. Map X/Y coordinates are approximate in-game locations, not real-world GPS. See the <a href="LICENSE.md">source credits and license</a> or <a href="https://github.com/marnason/mm6-atlas">project repository</a>.</p><p>This is an unofficial fan project and is not affiliated with Ubisoft or New World Computing.</p></div>'; }
+function setupRegionMap() {
+  const column = $('.region-map-column');
+  if (!column) return;
+  const viewport = column.querySelector('.region-map-scroll');
+  const surface = column.querySelector('.region-map-surface');
+  const output = column.querySelector('output');
+  const out = column.querySelector('[data-map-zoom="out"]');
+  const into = column.querySelector('[data-map-zoom="in"]');
+  const reset = column.querySelector('[data-map-zoom="reset"]');
+  let zoom = 1, panX = 0, panY = 0;
+  const pointers = new Map();
+  const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
+  function update() {
+    const bounds = viewport.getBoundingClientRect();
+    panX = clamp(panX, -(zoom - 1) * bounds.width / 2, (zoom - 1) * bounds.width / 2);
+    panY = clamp(panY, -(zoom - 1) * bounds.height / 2, (zoom - 1) * bounds.height / 2);
+    surface.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + zoom + ')';
+    surface.style.setProperty('--map-zoom', zoom);
+    output.value = Math.round(zoom * 100) + '%';
+    out.disabled = zoom <= 1;
+    into.disabled = zoom >= 4;
+    reset.disabled = zoom === 1 && panX === 0 && panY === 0;
+    viewport.classList.toggle('is-zoomed', zoom > 1);
+  }
+  function zoomAt(next, x, y) {
+    next = clamp(next, 1, 4);
+    const rect = viewport.getBoundingClientRect();
+    const dx = x - rect.left - rect.width / 2, dy = y - rect.top - rect.height / 2;
+    const factor = next / zoom;
+    panX = dx - (dx - panX) * factor;
+    panY = dy - (dy - panY) * factor;
+    zoom = next;
+    update();
+  }
+  const centerZoom = factor => {
+    const rect = viewport.getBoundingClientRect();
+    zoomAt(zoom * factor, rect.left + rect.width / 2, rect.top + rect.height / 2);
+  };
+  out.addEventListener('click', () => centerZoom(1 / 1.5));
+  into.addEventListener('click', () => centerZoom(1.5));
+  reset.addEventListener('click', () => {zoom = 1; panX = panY = 0; update();});
+  viewport.addEventListener('wheel', event => {event.preventDefault(); zoomAt(zoom * (event.deltaY < 0 ? 1.2 : 1 / 1.2), event.clientX, event.clientY);}, {passive:false});
+  viewport.addEventListener('dblclick', event => {event.preventDefault(); zoomAt(zoom * 1.5, event.clientX, event.clientY);});
+  const position = event => ({x:event.clientX,y:event.clientY});
+  const snapshot = () => {
+    const values = [...pointers.values()];
+    const center = {x:values.reduce((sum,p) => sum + p.x, 0) / values.length, y:values.reduce((sum,p) => sum + p.y, 0) / values.length};
+    const distance = values.length > 1 ? Math.hypot(values[0].x - values[1].x, values[0].y - values[1].y) : 0;
+    return {...center,distance};
+  };
+  viewport.addEventListener('pointerdown', event => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    pointers.set(event.pointerId, position(event));
+    (event.target.closest('.poi-marker') || viewport).setPointerCapture?.(event.pointerId);
+  });
+  viewport.addEventListener('pointermove', event => {
+    if (!pointers.has(event.pointerId)) return;
+    const before = snapshot();
+    pointers.set(event.pointerId, position(event));
+    const after = snapshot();
+    if (pointers.size > 1 && before.distance) zoomAt(zoom * after.distance / before.distance, after.x, after.y);
+    if (zoom > 1) {panX += after.x - before.x; panY += after.y - before.y; update();}
+    if (Math.hypot(after.x - before.x, after.y - before.y) > 2) viewport.dataset.dragging = 'true';
+  });
+  const endPointer = event => {
+    pointers.delete(event.pointerId);
+    if (viewport.dataset.dragging) {
+      const suppress = click => {click.preventDefault(); click.stopPropagation(); viewport.removeEventListener('click', suppress, true);};
+      viewport.addEventListener('click', suppress, true);
+      setTimeout(() => viewport.removeEventListener('click', suppress, true), 100);
+      delete viewport.dataset.dragging;
+    }
+  };
+  viewport.addEventListener('pointerup', endPointer);
+  viewport.addEventListener('pointercancel', endPointer);
+  viewport.addEventListener('keydown', event => {
+    if (event.target !== viewport) return;
+    if (['+','='].includes(event.key)) centerZoom(1.5);
+    else if (event.key === '-') centerZoom(1 / 1.5);
+    else if (event.key === '0') {zoom = 1; panX = panY = 0; update();}
+    else return;
+    event.preventDefault();
+  });
+  update();
+}
 function render(moveFocus = false) {
   route = parseRoute();
   if (route.name === 'redirect') { go(route.href, true); return; }
@@ -164,6 +249,7 @@ function render(moveFocus = false) {
   if (route.name === 'search') searchTerm = route.query;
   const views = {map:renderMap,region:()=>renderRegion(route.region),guide:()=>renderGuide(route.page),items:renderItems,search:renderSearch,about:renderAbout};
   $('#view').innerHTML = views[route.name]?.() || heading('Lost passage','Page not found') + '<a class="text-link" href="#/map" data-link>Return to the map →</a>';
+  setupRegionMap();
   if (route.name === 'search') searchResults();
   const label = route.name === 'guide' ? route.page.title : route.name === 'place' ? route.poi.n : route.name === 'region' ? route.region : route.name === 'map' ? 'World Map' : route.name[0].toUpperCase() + route.name.slice(1);
   document.title = label + ' — Enroth Atlas';
@@ -173,11 +259,6 @@ document.addEventListener('click', event => {
   const link = event.target.closest('a[data-link], a[data-route]');
   if (link && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0) {event.preventDefault(); go(link.getAttribute('href'),link.hasAttribute('data-replace-route'));}
   if (event.target.id === 'more-results') {searchLimit += 18; searchResults();}
-  if (event.target.matches('[data-zoom]')) {
-    const surface = event.target.closest('.region-map-column').querySelector('.region-map-surface');
-    const zoomed = surface.classList.toggle('zoomed');
-    event.target.textContent = zoomed ? 'Fit to panel' : 'View at full size';
-  }
 });
 $('#back-button').addEventListener('click', () => history.back());
 $('#quick-search').addEventListener('submit', event => {event.preventDefault(); searchLimit = 18; const q = $('#search-input').value.trim(); go(q ? '#/search?q=' + encodeURIComponent(q) : '#/search');});
