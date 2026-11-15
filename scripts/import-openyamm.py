@@ -21,7 +21,8 @@ SOURCE = Path(sys.argv[1]).resolve()
 sys.path.insert(0, str(SOURCE / 'tools' / 'maw_site'))
 import world_maps  # noqa: E402
 
-REGIONS = {
+# Magic Grounds directory names, retained only for matching archived guides.
+LEGACY_REGIONS = {
     'outa1': 'Sweet Water', 'outa2': 'Paradise Valley', 'outa3': 'Hermits Isle',
     'outb1': 'Kriegspire', 'outb2': 'Blackshire', 'outb3': 'Dragonsand',
     'outc1': 'White Cap', 'outc2': 'Free Haven', 'outc3': 'Mire Of The Damned',
@@ -34,7 +35,7 @@ def main():
     output = ROOT / 'src' / 'assets' / 'openyamm'
     output.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='mm6-openyamm-') as temp:
-        records = world_maps.build(Path(temp), only={stem + '.odm' for stem in REGIONS})
+        records = world_maps.build(Path(temp), only={stem + '.odm' for stem in LEGACY_REGIONS})
         if len(records) != 15:
             raise RuntimeError(f'Expected 15 MM6 outdoor maps, got {len(records)}')
         maps = []
@@ -51,7 +52,7 @@ def main():
                     item['x'] = round(poi['u'] * 65536 - 32768)
                     item['y'] = round(32768 - poi['v'] * 65536)
                 pois.append(item)
-            maps.append({'id': stem, 'region': REGIONS[stem], 'sourceName': record['name'],
+            maps.append({'id': stem, 'region': record['name'], 'legacyRegion': LEGACY_REGIONS[stem], 'sourceName': record['name'],
                          'image': f'assets/openyamm/{stem}.webp', 'width': record['w'],
                          'height': record['h'], 'pois': pois})
     payload = {'source': 'https://github.com/pjasicek/openyamm', 'commit': commit, 'maps': maps}

@@ -4,6 +4,10 @@ import path from 'node:path';
 const root = path.resolve(import.meta.dirname, '..');
 const source = path.join(root, 'source-mirror/user.xmission.com/~tnelson/mm6/gameplay/places');
 const out = path.join(root, 'dist');
+const mappedSource = await readFile(path.join(root, 'src/openyamm-data.js'), 'utf8');
+const mappedMatch = mappedSource.match(/^window\.OPENYAMM=(.*);\s*$/s);
+if (!mappedMatch) throw new Error('Invalid OpenYAMM data bundle');
+const canonicalRegion = new Map(JSON.parse(mappedMatch[1]).maps.map(map => [map.legacyRegion, map.region]));
 
 const walk = async dir => (await Promise.all((await readdir(dir, { withFileTypes: true })).map(async entry => {
   const full = path.join(dir, entry.name);
@@ -34,7 +38,8 @@ for (const file of files) {
   const relative = path.relative(source, file).split(path.sep).join('/');
   if (relative === 'places.html') continue;
   const segments = relative.split('/');
-  const region = titleCase(segments[0]);
+  const legacyRegion = titleCase(segments[0]);
+  const region = canonicalRegion.get(legacyRegion) || legacyRegion;
   const fontTitle = text(html.match(/<font[^>]*size\s*=\s*["']?\+2[^>]*>([\s\S]*?)<\/font>/i)?.[1] ?? '');
   const placeTitle = fontTitle.includes(':') ? fontTitle.split(':').slice(1).join(':').trim() : fontTitle;
   const title = /location\.html/i.test(segments.at(-1)) ? region : placeTitle || titleCase(path.basename(file));

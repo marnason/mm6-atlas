@@ -78,3 +78,22 @@
 .guide-visuals figcaption{font-size:.65rem;color:var(--muted);padding:7px 0 0;overflow-wrap:anywhere}
 .guide-supplementary{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:12px;margin-top:12px}
 .guide-supplementary img{max-height:200px}
+.item-catalog{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start}
+.item-card,.exchange-card{background:#fff9ec;border:1px solid var(--line);min-width:0}
+.item-card summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:1fr 20px;gap:5px 10px;padding:15px 17px}
+.item-card summary::-webkit-details-marker{display:none}
+.item-card summary:hover{background:#f6ecd8}
+.item-card .place-kind{grid-column:1}
+.item-card strong{font:1.25rem Georgia,serif;grid-column:1}
+.item-expand{grid-column:2;grid-row:1/3;align-self:center;color:var(--rust);font-size:1.3rem}
+.item-card[open] .item-expand{transform:rotate(180deg)}
+.item-card p{border-top:1px solid var(--line);margin:0;padding:14px 17px 8px;color:#445452;font-size:.82rem;line-height:1.6}
+.item-card>a{display:inline-block;padding:0 17px 15px;color:#8b553a;font-size:.7rem}
+.exchange-card{padding:17px;margin-bottom:10px}
+.exchange-card h2{font:1.45rem Georgia,serif;margin:6px 0 10px}
+.exchange-card p{font-size:.82rem;line-height:1.55;color:#445452;margin:8px 0}
+.exchange-card .exchange-reward{font-weight:700;color:var(--ink)}
+.exchange-links{display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:14px;font-size:.72rem}
+.exchange-links a{color:#8b553a}
+.search-result-list .item-card,.search-result-list .exchange-card{margin:10px 0}
+@media(max-width:700px){.item-catalog{grid-template-columns:1fr}}
