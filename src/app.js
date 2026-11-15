@@ -16,7 +16,9 @@ const atlasMaps = window.OPENYAMM?.maps || [];
 const mapByRegion = new Map(atlasMaps.map(map => [map.region, map]));
 const mapById = new Map(atlasMaps.map(map => [map.id, map]));
 const allPlaces = atlasMaps.flatMap(map => map.pois.map(poi => ({map, poi})));
-const placeURL = (map, poi) => '#/place/' + map.id + '/' + poi.id;
+const nameKey = value => value.toLowerCase().replace(/[^a-z0-9]+/g,'');
+const guideForPlace = (map, poi) => pages.find(page => page.region === map.region && nameKey(page.title) === nameKey(poi.n));
+const placeURL = (map, poi) => guideForPlace(map, poi) ? guideURL(guideForPlace(map, poi)) : regionURL(map.region) + '?place=' + encodeURIComponent(poi.id);
 const placeGroups = [
   ['highlights','Highlights',poi => ['entrance','bonus','hint','objective','castle'].includes(poi.t)],
   ['all','All places',() => true],
@@ -34,7 +36,9 @@ function parseRoute() {
   const name = rawName || 'map';
   if (name === 'region' && regionBySlug.has(value)) {
     const params = new URLSearchParams(search);
-    return {name, region:regionBySlug.get(value), mode:params.get('view') === 'guides' ? 'guides' : 'places', group:placeGroups.some(group => group[0] === params.get('group')) ? params.get('group') : 'highlights'};
+    const region = regionBySlug.get(value), map = mapByRegion.get(region);
+    const selected = map?.pois.find(poi => poi.id === params.get('place'));
+    return {name, region, selected, mode:params.get('view') === 'guides' ? 'guides' : 'places', group:placeGroups.some(group => group[0] === params.get('group')) ? params.get('group') : selected ? 'all' : 'highlights'};
   }
   if (name === 'guide' && pageById.has(decodeURIComponent(value || ''))) return {name, page:pageById.get(decodeURIComponent(value))};
   if (name === 'place') {
@@ -93,7 +97,7 @@ function placeRow(map, poi) {
   return '<a class="place-row" href="' + placeURL(map,poi) + '" data-link><span class="place-kind">' + esc(placeType(poi)) + '</span><strong>' + esc(poi.n) + '</strong><span class="place-arrow" aria-hidden="true">→</span></a>';
 }
 function regionMap(map, points) {
-  const markers = points.map((poi,index) => '<a class="poi-marker poi-' + esc(poi.t) + '" href="' + placeURL(map,poi) + '" data-link style="left:' + (poi.u * 100) + '%;top:' + (poi.v * 100) + '%" aria-label="' + esc(poi.n + ', ' + placeType(poi)) + '" title="' + esc(poi.n) + '"><span>' + (index + 1) + '</span></a>').join('');
+  const markers = points.map((poi,index) => '<a class="poi-marker poi-' + esc(poi.t) + (route.selected?.id === poi.id ? ' selected' : '') + '" href="' + placeURL(map,poi) + '" data-link style="left:' + (poi.u * 100) + '%;top:' + (poi.v * 100) + '%" aria-label="' + esc(poi.n + ', ' + placeType(poi)) + (guideForPlace(map,poi) ? ', opens guide' : ', show details') + '" title="' + esc(poi.n) + '"' + (route.selected?.id === poi.id ? ' aria-current="location"' : '') + '><span>' + (index + 1) + '</span></a>').join('');
   return '<div class="region-map-toolbar"><span>' + esc(map.sourceName) + ' · 1024 × 1024 map</span><button type="button" class="zoom-button" data-zoom>View at full size</button></div><div class="region-map-scroll"><div class="region-map-surface"><img src="' + map.image + '" alt="High-resolution map of ' + esc(map.sourceName) + '" loading="lazy"><div class="poi-markers">' + markers + '</div></div></div>';
 }
 function renderRegion(region) {
@@ -105,34 +109,25 @@ function renderRegion(region) {
   const group = placeGroups.find(group => group[0] === route.group) || placeGroups[0];
   const points = map.pois.filter(group[2]);
   const filters = placeGroups.map(([key,label,test]) => '<a href="' + regionURL(region) + (key === 'highlights' ? '' : '?group=' + key) + '" data-link data-replace-route class="' + (route.group === key ? 'active' : '') + '">' + label + ' <small>' + map.pois.filter(test).length + '</small></a>').join('');
-  return heading('Explore the region',region,'High-resolution map with in-game locations and coordinates.','<a class="text-link" href="#/regions" data-link>All regions →</a>') + tabs + '<div class="place-filters" aria-label="Place categories">' + filters + '</div><div class="region-explorer"><div class="region-map-column">' + regionMap(map,points) + '</div><aside class="place-list"><div class="place-list-heading"><strong>' + esc(group[1]) + '</strong><small>' + points.length + ' places</small></div><div class="place-list-items">' + points.slice().sort((a,b) => a.n.localeCompare(b.n)).map(poi => placeRow(map,poi)).join('') + '</div></aside></div><p class="map-credit">Map and coordinates: OpenYAMM. Coordinates use the game world, not real-world GPS. <a href="LICENSE.md">Source credits</a></p>';
-}
-function renderPlace(map, poi) {
-  const normalized = value => value.toLowerCase().replace(/[^a-z0-9]+/g,'');
-  const related = pages.filter(page => page.region === map.region && (normalized(page.title) === normalized(poi.n) || (poi.map && normalized(page.title) === normalized(poi.map))));
-  const details = [
-    '<div><dt>Category</dt><dd>' + esc(placeType(poi)) + '</dd></div>',
-    poi.x === undefined ? '' : '<div><dt>In-game GPS (approx.)</dt><dd>X ' + poi.x.toLocaleString() + ' · Y ' + poi.y.toLocaleString() + '</dd></div>',
-    poi.people?.length ? '<div><dt>People</dt><dd>' + esc(poi.people.join(', ')) + '</dd></div>' : '',
-    poi.d ? '<div><dt>Note</dt><dd>' + esc(poi.d) + '</dd></div>' : '',
-    related.length ? '<div><dt>Magic Grounds guide</dt><dd>' + related.map(page => '<a href="' + guideURL(page) + '" data-link>' + esc(page.title) + ' →</a>').join(', ') + '</dd></div>' : ''
-  ].join('');
-  return heading(map.region + ' · ' + placeType(poi),poi.n,'Location data from OpenYAMM.','<a class="text-link" href="' + regionURL(map.region) + '" data-link>Back to region →</a>') + '<div class="region-explorer place-detail"><div class="region-map-column">' + regionMap(map,[poi]) + '</div><aside class="place-detail-panel"><h2>Location details</h2><dl>' + details + '</dl><a href="https://github.com/pjasicek/openyamm/blob/' + window.OPENYAMM.commit + '/assets_dev/worlds/mm6/maps/' + map.id + '.scene.yml" target="_blank" rel="noopener">OpenYAMM source ↗</a></aside></div><p class="map-credit">The game coordinates are reconstructed from OpenYAMM’s map position and rounded map fractions. <a href="LICENSE.md">Source credits</a></p>';
+  const selected = route.selected;
+  const detail = selected ? '<section class="selected-place" aria-label="Selected place"><div class="selected-place-top"><span class="place-kind">' + esc(placeType(selected)) + '</span><a href="' + regionURL(region) + '?group=all" data-link aria-label="Close location details">×</a></div><h2>' + esc(selected.n) + '</h2>' + (selected.x === undefined ? '' : '<p>In-game X ' + selected.x.toLocaleString() + ' · Y ' + selected.y.toLocaleString() + '</p>') + (selected.people?.length ? '<p>People: ' + esc(selected.people.join(', ')) + '</p>' : '') + (selected.d ? '<p>' + esc(selected.d) + '</p>' : '') + '</section>' : '';
+  return heading('Explore the region',region,'High-resolution map with in-game locations and coordinates.','<a class="text-link" href="#/regions" data-link>All regions →</a>') + tabs + '<div class="place-filters" aria-label="Place categories">' + filters + '</div><div class="region-explorer"><div class="region-map-column">' + regionMap(map,points) + '</div><aside class="place-list">' + detail + '<div class="place-list-heading"><strong>' + esc(group[1]) + '</strong><small>' + points.length + ' places</small></div><div class="place-list-items">' + points.slice().sort((a,b) => a.n.localeCompare(b.n)).map(poi => placeRow(map,poi)).join('') + '</div></aside></div><p class="map-credit">Map and coordinates: OpenYAMM. Coordinates use the game world, not real-world GPS. <a href="LICENSE.md">Source credits</a></p>';
 }
 function renderGuide(page) {
-  const images = page.images.map(src => '<figure><img src="assets/places/' + encodeURI(src) + '" alt="Map or scene for ' + esc(page.title) + '" loading="lazy"><figcaption>' + esc(src.split('/').pop()) + '</figcaption></figure>').join('');
+  const mapImage = page.images.at(-1);
+  const image = (src, main = false) => '<figure' + (main ? ' class="guide-main-map"' : '') + '><img src="assets/places/' + encodeURI(src) + '" alt="' + (main ? 'Map of ' : 'Scene from ') + esc(page.title) + '"' + (main ? '' : ' loading="lazy"') + '><figcaption>' + (main ? 'Guide map' : 'Additional view') + ' · ' + esc(src.split('/').pop()) + '</figcaption></figure>';
+  const images = mapImage ? '<div class="guide-visuals">' + image(mapImage,true) + (page.images.length > 1 ? '<div class="guide-supplementary">' + page.images.slice(0,-1).map(src => image(src)).join('') + '</div>' : '') + '</div>' : '';
   const siblings = pages.filter(item => item.region === page.region), index = siblings.findIndex(item => item.id === page.id), previous = siblings[index - 1], next = siblings[index + 1];
   const pager = (item, label) => item ? '<a href="' + guideURL(item) + '" data-link><small>' + label + '</small><strong>' + esc(item.title) + '</strong></a>' : '<span></span>';
   const mapped = mapByRegion.get(page.region);
-  const key = page.title.toLowerCase().replace(/[^a-z0-9]+/g,'');
-  const matched = mapped?.pois.find(poi => poi.n.toLowerCase().replace(/[^a-z0-9]+/g,'') === key);
-  const mapLink = matched ? '<a href="' + placeURL(mapped,matched) + '" data-link>Find on high-resolution map →</a>' : '<a href="' + regionURL(page.region) + '" data-link>View regional map →</a>';
-  return '<article class="guide-view">' + heading(page.region + ' · Guide ' + (index + 1) + ' of ' + siblings.length,page.title,'','<a class="text-link" href="' + regionURL(page.region) + '?view=guides" data-link>All ' + esc(page.region) + ' guides →</a>') + '<div class="guide-content">' + (images ? '<div class="image-gallery">' + images + '</div>' : '') + '<section class="guide-notes"><h2>Field notes</h2><p>' + esc(page.body).replace(/\n/g,'<br>') + '</p></section></div><div class="guide-source">' + mapLink + ' · Original: <a href="https://user.xmission.com/~tnelson/mm6/gameplay/places/' + encodeURI(page.sourcePath) + '" target="_blank" rel="noopener">Magic Grounds ↗</a></div><nav class="guide-pager" aria-label="Guide navigation">' + pager(previous,'← Previous guide') + pager(next,'Next guide →') + '</nav></article>';
+  const matched = mapped?.pois.find(poi => nameKey(poi.n) === nameKey(page.title));
+  const mapLink = matched ? '<a href="' + regionURL(page.region) + '?place=' + encodeURIComponent(matched.id) + '" data-link>See location on regional map →</a>' : '<a href="' + regionURL(page.region) + '" data-link>View regional map →</a>';
+  return '<article class="guide-view">' + heading(page.region + ' · Guide ' + (index + 1) + ' of ' + siblings.length,page.title,'','<a class="text-link" href="' + regionURL(page.region) + '?view=guides" data-link>All ' + esc(page.region) + ' guides →</a>') + '<div class="guide-content">' + images + '<section class="guide-notes"><h2>Field notes</h2><p>' + esc(page.body).replace(/\n/g,'<br>') + '</p></section></div><div class="guide-source">' + mapLink + ' · Original: <a href="https://user.xmission.com/~tnelson/mm6/gameplay/places/' + encodeURI(page.sourcePath) + '" target="_blank" rel="noopener">Magic Grounds ↗</a></div><nav class="guide-pager" aria-label="Guide navigation">' + pager(previous,'← Previous guide') + pager(next,'Next guide →') + '</nav></article>';
 }
 function searchResults() {
   const words = searchTerm.toLowerCase().trim().split(/\s+/).filter(Boolean);
   const guides = words.length ? pages.filter(page => words.every(word => (page.title + ' ' + page.region + ' ' + page.body).toLowerCase().includes(word))).map(page => ({kind:'guide',name:page.title,page})) : [];
-  const places = words.length ? allPlaces.filter(({map,poi}) => words.every(word => (poi.n + ' ' + map.region + ' ' + placeType(poi) + ' ' + (poi.d || '') + ' ' + (poi.people || []).join(' ')).toLowerCase().includes(word))).map(item => ({kind:'place',name:item.poi.n,...item})) : [];
+  const places = words.length ? allPlaces.filter(({map,poi}) => !guideForPlace(map,poi) && words.every(word => (poi.n + ' ' + map.region + ' ' + placeType(poi) + ' ' + (poi.d || '') + ' ' + (poi.people || []).join(' ')).toLowerCase().includes(word))).map(item => ({kind:'place',name:item.poi.n,...item})) : [];
   const matches = [...guides,...places].sort((a,b) => Number(b.name.toLowerCase().startsWith(searchTerm.toLowerCase())) - Number(a.name.toLowerCase().startsWith(searchTerm.toLowerCase())) || a.name.localeCompare(b.name));
   $('#search-results').innerHTML = words.length ? '<p class="result-count">' + guides.length + ' guides · ' + places.length + ' mapped places</p><div class="search-result-list">' + (matches.slice(0,searchLimit).map((item,index) => item.kind === 'guide' ? guideRow(item.page,index) : placeRow(item.map,item.poi)).join('') || '<p class="empty">No matches. Try a place, dungeon, or treasure name.</p>') + '</div>' + (matches.length > searchLimit ? '<button class="more-button" id="more-results" type="button">Show more results (' + (matches.length - searchLimit) + ' remaining)</button>' : '') : '<div class="search-prompt"><span>⌕</span><h2>Find a place or secret</h2><p>Search ' + pages.length + ' guides and ' + allPlaces.length + ' mapped places.</p></div>';
 }
@@ -140,9 +135,10 @@ function renderSearch() { return heading('Full atlas search','Search the atlas',
 function renderAbout() { return heading('Preservation note','About this atlas') + '<div class="about-copy"><p>Enroth Atlas combines recovered Magic Grounds maps and notes with high-resolution region maps and location data exported from OpenYAMM. All site data and map images are bundled for offline use once the site has been visited.</p><p>The archive contains ' + pages.length + ' searchable guides and ' + allPlaces.length + ' mapped places across ' + regions.length + ' regions. Map X/Y coordinates are approximate in-game locations, not real-world GPS. See the <a href="LICENSE.md">source credits and license</a> or <a href="https://github.com/marnason/mm6-atlas">project repository</a>.</p><p>This is an unofficial fan project and is not affiliated with Ubisoft or New World Computing.</p></div>'; }
 function render(moveFocus = false) {
   route = parseRoute(); renderNavigation();
+  if (route.name === 'place') { go(placeURL(route.map,route.poi), true); return; }
   $('#search-input').value = route.name === 'search' ? route.query : '';
   if (route.name === 'search') searchTerm = route.query;
-  const views = {map:renderMap,regions:renderRegions,region:()=>renderRegion(route.region),guide:()=>renderGuide(route.page),place:()=>renderPlace(route.map,route.poi),search:renderSearch,about:renderAbout};
+  const views = {map:renderMap,regions:renderRegions,region:()=>renderRegion(route.region),guide:()=>renderGuide(route.page),search:renderSearch,about:renderAbout};
   $('#view').innerHTML = views[route.name]?.() || heading('Lost passage','Page not found') + '<a class="text-link" href="#/map" data-link>Return to the map →</a>';
   if (route.name === 'search') searchResults();
   const label = route.name === 'guide' ? route.page.title : route.name === 'place' ? route.poi.n : route.name === 'region' ? route.region : route.name === 'map' ? 'World Map' : route.name[0].toUpperCase() + route.name.slice(1);
