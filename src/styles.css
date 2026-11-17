@@ -102,3 +102,115 @@
 .exchange-links a{color:#8b553a}
 .search-result-list .item-card,.search-result-list .exchange-card{margin:10px 0}
 @media(max-width:700px){.item-catalog{grid-template-columns:1fr}}
+
+/* Compact atlas layout: the 15-zone world map stays in view on every route. */
+.topbar{height:50px;padding-inline:clamp(12px,2vw,30px);justify-content:flex-start;gap:clamp(10px,2vw,26px)}
+.sigil{width:28px;height:28px}
+.brand{font-size:.72rem;gap:8px}
+.primary-nav{margin-left:auto;gap:clamp(10px,2vw,24px)}
+.theme-toggle{flex:none;border:1px solid #586e71;background:#20383d;color:#f3e8d1;border-radius:3px;padding:5px 8px;font-size:.69rem;white-space:nowrap}
+.theme-toggle:hover{border-color:var(--gold)}
+.app-shell{width:min(1600px,100%);padding:0 clamp(10px,2vw,30px) 24px}
+.toolbar{min-height:43px;gap:10px}
+.quick-search{height:30px;width:min(220px,25vw)}
+.quick-search span{font-size:1.2rem;margin:0 6px}
+.atlas-layout{display:grid;grid-template-columns:clamp(180px,18vw,250px) minmax(0,1fr);align-items:start;gap:clamp(12px,1.5vw,24px)}
+.world-rail{position:sticky;top:8px;z-index:20;min-width:0;padding:8px;background:var(--rail,#172b30);border:1px solid var(--rail-line,#375255);color:#f3e8d1;box-shadow:0 5px 20px #0002}
+.world-rail-heading{display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-bottom:6px;font-size:.73rem;line-height:1.2}
+.world-rail-heading strong{font:1rem Georgia,serif;color:#e7bd78}
+.world-rail-heading span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.world-rail>small{display:block;margin-top:5px;color:#bdc9c5;font-size:.61rem}
+.world-map{position:relative;width:100%;aspect-ratio:1325/795;overflow:hidden;background:#263d3d}
+.world-map>img{display:block;width:100%;height:100%}
+.world-map .map-zones{position:absolute;inset:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr))}
+.world-map .map-zone{padding:2px;border-color:#fff9e95e}
+.world-map .map-zone span{display:none}
+.world-map .map-zone.active{box-shadow:inset 0 0 0 2px #ffd57f;background:#e5b96266}
+.view{min-width:0;padding-top:14px}
+.view-heading{margin-bottom:14px;gap:10px}
+.view-heading h1{font-size:clamp(1.65rem,2.6vw,2.55rem);line-height:1.1}
+.eyebrow{margin-bottom:4px;font-size:.61rem}
+.subhead{margin-top:4px;font-size:.8rem;line-height:1.4}
+.region-tabs{margin-bottom:10px}
+.region-tabs a{padding:8px 11px}
+.place-filters{margin-bottom:9px}
+.guide-row{padding:10px 6px;gap:10px}
+.guide-summary strong{font-size:1.06rem}
+.guide-notes{padding:14px}
+.guide-content{gap:14px}
+.place-row{padding:7px 10px}
+.place-list-heading{padding:9px 10px}
+.item-card summary{padding:10px 12px}
+.exchange-card{padding:12px}
+.search-prompt{padding:25px 12px}
+.home-stats{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px}
+.home-stats span{padding:7px 10px;background:var(--card,#fff8ea);border:1px solid var(--line);font-size:.72rem;color:var(--muted)}
+.home-stats strong{font-size:1.1rem;color:var(--ink);margin-right:3px}
+.home-jumps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-top:1px solid var(--line);border-left:1px solid var(--line)}
+.home-jumps .region-item{padding:10px 12px;font-size:.95rem}
+body>footer{padding:10px clamp(10px,2vw,30px)}
+@media(max-width:760px){
+  .atlas-layout{display:flex;flex-direction:column;gap:0}
+  .world-rail{top:0;align-self:stretch;display:grid;grid-template-columns:minmax(90px,1fr) min(44vw,170px);grid-template-rows:auto auto;align-items:center;gap:2px 10px;padding:5px 8px;margin:0 -10px;border-left:0;border-right:0;box-shadow:0 3px 12px #0005}
+  .world-rail-heading{grid-column:1;grid-row:1;margin:0;display:block}
+  .world-rail-heading strong,.world-rail-heading span{display:block}
+  .world-rail>small{grid-column:1;grid-row:2;margin:0}
+  .world-map{grid-column:2;grid-row:1/3;width:min(100%,170px,calc((100dvh - 20px)*1.66));justify-self:end}
+  .world-map .map-zone span{display:none}
+  .view{width:100%;padding-top:10px}
+  .topbar{min-height:48px;height:auto;padding:5px 10px;flex-wrap:wrap;gap:4px 9px}
+  .brand{padding:0}
+  .primary-nav{order:3;width:100%;height:26px;justify-content:flex-start;gap:16px;margin:0}
+  .primary-nav a{font-size:.6rem}
+  .theme-toggle{margin-left:auto}
+  .toolbar{min-height:40px;padding:4px 0;flex-wrap:nowrap}
+  .breadcrumbs{width:auto;flex:1;font-size:.68rem}
+  .quick-search{width:clamp(95px,27vw,180px);margin:0}
+  .quick-search kbd{display:none}
+  .view-heading{flex-direction:row;align-items:end}
+  .view-heading h1{font-size:clamp(1.6rem,6vw,2.1rem)}
+  .text-link{font-size:.7rem}
+}
+@media(max-width:430px){.home-jumps{grid-template-columns:1fr}.view-heading{align-items:start;flex-direction:column}.quick-search{width:115px}}
+
+/* Dark is the default; the header switch persists an explicit light choice. */
+:root[data-theme=dark]{--ink:#e8ece4;--paper:#101b1f;--line:#354a4d;--muted:#a4b6b3;--rust:#e9ab7e;--gold:#d4aa6d;--rail:#14282d;--rail-line:#345157;--card:#1b2d31;color-scheme:dark}
+:root[data-theme=dark] body{background:#101b1f;color:var(--ink)}
+:root[data-theme=dark] .toolbar{border-color:var(--line)}
+:root[data-theme=dark] .breadcrumbs{color:#a4b6b3}
+:root[data-theme=dark] .crumb-separator{color:#718986}
+:root[data-theme=dark] .quick-search,
+:root[data-theme=dark] .guide-notes,
+:root[data-theme=dark] .guide-pager a,
+:root[data-theme=dark] .place-list,
+:root[data-theme=dark] .selected-place,
+:root[data-theme=dark] .item-card,
+:root[data-theme=dark] .exchange-card,
+:root[data-theme=dark] .more-button,
+:root[data-theme=dark] .map-zoom-controls button{background:#1b2e32;color:var(--ink);border-color:var(--line)}
+:root[data-theme=dark] .guide-visuals figure{background:#26393b;border-color:var(--line)}
+:root[data-theme=dark] .guide-visuals img{background:#d8d0bd}
+:root[data-theme=dark] .region-item{background:#1b2e32;color:var(--ink);border-color:var(--line)}
+:root[data-theme=dark] .region-item:hover{background:#294044}
+:root[data-theme=dark] .guide-row:hover,
+:root[data-theme=dark] .place-row:hover,
+:root[data-theme=dark] .item-card summary:hover{background:#253a3d}
+:root[data-theme=dark] .guide-notes p,
+:root[data-theme=dark] .selected-place p,
+:root[data-theme=dark] .item-card p,
+:root[data-theme=dark] .exchange-card p,
+:root[data-theme=dark] .about-copy{color:#c5d1ca}
+:root[data-theme=dark] .exchange-card .exchange-reward{color:var(--ink)}
+:root[data-theme=dark] .region-tabs a:hover,
+:root[data-theme=dark] .region-tabs a.active{color:var(--ink)}
+:root[data-theme=dark] .place-filters a.active,
+:root[data-theme=dark] .place-filters a:hover{background:#344c4e;border-color:#849c99;color:#f4eee1}
+:root[data-theme=dark] .text-link,
+:root[data-theme=dark] .map-credit a,
+:root[data-theme=dark] .guide-source a,
+:root[data-theme=dark] .place-detail-panel a,
+:root[data-theme=dark] .item-card>a,
+:root[data-theme=dark] .exchange-links a,
+:root[data-theme=dark] .about-copy a{color:#e9bc91}
+:root[data-theme=dark] .search-prompt{border-color:var(--line)}
+:root[data-theme=light]{color-scheme:light}

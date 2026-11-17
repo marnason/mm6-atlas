@@ -78,6 +78,13 @@ function renderNavigation() {
     link.classList.toggle('active', current);
     if (current) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
   });
+  const currentRegion = route.name === 'region' ? route.region : route.name === 'guide' ? route.page.region : null;
+  $('#world-location').textContent = currentRegion || '15 regions';
+  document.querySelectorAll('#world-map .map-zone').forEach(link => {
+    const active = link.dataset.region === currentRegion;
+    link.classList.toggle('active', active);
+    if (active) link.setAttribute('aria-current', 'location'); else link.removeAttribute('aria-current');
+  });
 }
 
 function regionItem(region) {
@@ -88,8 +95,7 @@ function heading(eyebrow, title, subhead = '', action = '') {
   return '<div class="view-heading"><div><p class="eyebrow">' + esc(eyebrow) + '</p><h1>' + esc(title) + '</h1>' + (subhead ? '<p class="subhead">' + esc(subhead) + '</p>' : '') + '</div>' + action + '</div>';
 }
 function renderMap() {
-  const zones = mapRegions.map(region => '<a class="map-zone" href="' + regionURL(region) + '" data-link aria-label="Explore ' + esc(region) + '"><span>' + esc(region) + '</span></a>').join('');
-  return heading('Might and Magic VI · Field companion','Explore Enroth','Select any square to open its region. ' + pages.length + ' recovered guides are available offline.') + '<div class="map-layout"><div class="map-canvas"><div class="map-surface"><img src="assets/places/World/big.jpg" alt="Map of the world of Enroth" draggable="false"><div class="map-zones" aria-label="Map regions">' + zones + '</div></div></div><aside class="map-aside"><p class="eyebrow">Atlas index</p><h2>Quick jumps</h2><p>Choose a square or jump straight to a familiar starting point.</p><div class="featured-regions">' + ['New Sorpigal','Castle Ironfist','Free Haven','Misty Islands'].map(regionItem).join('') + '</div></aside></div>';
+  return heading('Might and Magic VI · Field companion','Explore Enroth','Choose a square on the persistent world map, or jump to a region below.') + '<div class="home-stats"><span><strong>15</strong> regions</span><span><strong>' + allPlaces.length + '</strong> mapped places</span><span><strong>' + pages.length + '</strong> guides</span></div><div class="home-jumps">' + ['New Sorpigal','Castle Ironfist','Free Haven','Misty Islands'].map(regionItem).join('') + '</div>';
 }
 function guideRow(page, index) {
   const excerpt = page.body.replace(/\s+/g,' ').slice(0,130);
@@ -266,5 +272,21 @@ $('#search-input').addEventListener('input', event => {searchTerm = event.target
 document.addEventListener('keydown', event => {if (event.key === '/' && !/input|textarea/i.test(document.activeElement.tagName)) {event.preventDefault(); $('#search-input').focus();}});
 window.addEventListener('popstate', () => render(true));
 window.addEventListener('hashchange', () => render(true));
+$('#world-map').innerHTML = '<img src="assets/places/World/big.jpg" alt="" draggable="false"><div class="map-zones">' + mapRegions.map(region => '<a class="map-zone" href="' + regionURL(region) + '" data-link data-region="' + esc(region) + '" aria-label="Explore ' + esc(region) + '" title="' + esc(region) + '"><span>' + esc(region) + '</span></a>').join('') + '</div>';
+const themeButton = $('#theme-toggle');
+function syncThemeButton() {
+  const dark = document.documentElement.dataset.theme === 'dark';
+  document.querySelector('meta[name="theme-color"]').content = dark ? '#14242a' : '#f0e8d7';
+  themeButton.setAttribute('aria-label', 'Switch to ' + (dark ? 'light' : 'dark') + ' mode');
+  themeButton.setAttribute('title', 'Switch to ' + (dark ? 'light' : 'dark') + ' mode');
+  themeButton.innerHTML = dark ? '☀ <span>Light</span>' : '☾ <span>Dark</span>';
+}
+themeButton.addEventListener('click', () => {
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  try {localStorage.setItem('enroth-theme', next);} catch {}
+  syncThemeButton();
+});
+syncThemeButton();
 render();
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js');
