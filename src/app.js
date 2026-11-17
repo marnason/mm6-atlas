@@ -2,7 +2,7 @@ const pages = window.ATLAS_PAGES || [];
 const regions = [...new Set(pages.map(page => page.region))].sort();
 const atlasMaps = window.OPENYAMM?.maps || [];
 const itemData = window.ATLAS_ITEMS || {items:[],exchanges:[]};
-const mapRegions = ['outa1','outb1','outc1','outd1','oute1','outa2','outb2','outc2','outd2','oute2','outa3','outb3','outc3','outd3','oute3'].map(id => atlasMaps.find(map => map.id === id)?.region).filter(Boolean);
+const mapRegions = [...atlasMaps].sort((a,b) => a.id[4].localeCompare(b.id[4]) || a.id[3].localeCompare(b.id[3])).map(map => map.region);
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const slug = region => region.toLowerCase().replace(/[^a-z0-9]+/g, '-');
@@ -72,7 +72,7 @@ function renderNavigation() {
   if (route.name === 'about') parts.push(crumb('About'));
   if (route.name === 'not-found') parts.push(crumb('Not found'));
   $('#breadcrumbs').innerHTML = parts.join('<span class="crumb-separator" aria-hidden="true">/</span>');
-  $('#back-button').hidden = !history.state?.atlas;
+  $('#back-button').hidden = route.name === 'map' || !history.state?.atlas;
   document.querySelectorAll('.primary-nav a').forEach(link => {
     const current = link.dataset.route === route.name || (['region','guide','place'].includes(route.name) && link.dataset.route === 'map');
     link.classList.toggle('active', current);
@@ -87,15 +87,11 @@ function renderNavigation() {
   });
 }
 
-function regionItem(region) {
-  const count = pages.filter(page => page.region === region).length;
-  return '<a class="region-item" href="' + regionURL(region) + '" data-link><span class="region-mark">✦</span><span>' + esc(region) + '</span><small>' + count + ' guides</small><span aria-hidden="true">↗</span></a>';
-}
 function heading(eyebrow, title, subhead = '', action = '') {
   return '<div class="view-heading"><div><p class="eyebrow">' + esc(eyebrow) + '</p><h1>' + esc(title) + '</h1>' + (subhead ? '<p class="subhead">' + esc(subhead) + '</p>' : '') + '</div>' + action + '</div>';
 }
 function renderMap() {
-  return heading('Might and Magic VI · Field companion','Explore Enroth','Choose a square on the persistent world map, or jump to a region below.') + '<div class="home-stats"><span><strong>15</strong> regions</span><span><strong>' + allPlaces.length + '</strong> mapped places</span><span><strong>' + pages.length + '</strong> guides</span></div><div class="home-jumps">' + ['New Sorpigal','Castle Ironfist','Free Haven','Misty Islands'].map(regionItem).join('') + '</div>';
+  return heading('Might and Magic VI','World map','Choose one of the 15 regions.');
 }
 function guideRow(page, index) {
   const excerpt = page.body.replace(/\s+/g,' ').slice(0,130);
@@ -250,6 +246,8 @@ function render(moveFocus = false) {
   route = parseRoute();
   if (route.name === 'redirect') { go(route.href, true); return; }
   if (route.name === 'place') { go(placeURL(route.map,route.poi), true); return; }
+  $('.atlas-layout').classList.toggle('is-world', route.name === 'map');
+  $('.app-shell').classList.toggle('is-world', route.name === 'map');
   renderNavigation();
   $('#search-input').value = route.name === 'search' ? route.query : '';
   if (route.name === 'search') searchTerm = route.query;

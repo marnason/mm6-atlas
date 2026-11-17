@@ -143,11 +143,6 @@
 .item-card summary{padding:10px 12px}
 .exchange-card{padding:12px}
 .search-prompt{padding:25px 12px}
-.home-stats{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px}
-.home-stats span{padding:7px 10px;background:var(--card,#fff8ea);border:1px solid var(--line);font-size:.72rem;color:var(--muted)}
-.home-stats strong{font-size:1.1rem;color:var(--ink);margin-right:3px}
-.home-jumps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-top:1px solid var(--line);border-left:1px solid var(--line)}
-.home-jumps .region-item{padding:10px 12px;font-size:.95rem}
 body>footer{padding:10px clamp(10px,2vw,30px)}
 @media(max-width:760px){
   .atlas-layout{display:flex;flex-direction:column;gap:0}
@@ -171,7 +166,19 @@ body>footer{padding:10px clamp(10px,2vw,30px)}
   .view-heading h1{font-size:clamp(1.6rem,6vw,2.1rem)}
   .text-link{font-size:.7rem}
 }
-@media(max-width:430px){.home-jumps{grid-template-columns:1fr}.view-heading{align-items:start;flex-direction:column}.quick-search{width:115px}}
+@media(max-width:430px){.view-heading{align-items:start;flex-direction:column}.quick-search{width:115px}}
+
+/* The world route uses the same data-driven map at full available size. */
+.app-shell.is-world .toolbar{display:none}
+.atlas-layout.is-world{display:grid;grid-template-columns:minmax(0,1fr);gap:0}
+.atlas-layout.is-world .view{grid-row:1;padding-top:12px}
+.atlas-layout.is-world .view-heading{margin-bottom:10px}
+.atlas-layout.is-world .world-rail{grid-row:2;display:block;position:static;z-index:auto;width:min(100%, max(160px, calc((100dvh - 145px)*1.6667)));padding:0;margin:0 auto;border:1px solid var(--line);box-shadow:none}
+.atlas-layout.is-world .world-rail-heading,.atlas-layout.is-world .world-rail>small{display:none}
+.atlas-layout.is-world .world-map{width:100%;aspect-ratio:1325/795}
+.atlas-layout.is-world .world-map .map-zone{padding:clamp(2px,.9vw,14px)}
+.atlas-layout.is-world .world-map .map-zone span{display:inline-block;font-size:clamp(.5rem,1vw,.84rem);line-height:1.15;padding:3px 5px}
+@media(max-width:760px){.atlas-layout.is-world .world-map .map-zone span{font-size:clamp(.48rem,1.8vw,.72rem);padding:2px 3px}}
 
 /* Dark is the default; the header switch persists an explicit light choice. */
 :root[data-theme=dark]{--ink:#e8ece4;--paper:#101b1f;--line:#354a4d;--muted:#a4b6b3;--rust:#e9ab7e;--gold:#d4aa6d;--rail:#14282d;--rail-line:#345157;--card:#1b2d31;color-scheme:dark}
