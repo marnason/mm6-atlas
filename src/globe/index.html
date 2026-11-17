@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>World of Enroth Globe — Enroth Atlas</title>
+<meta name="description" content="A rotatable globe of Enroth, Jadame and Antagarich stitched from OpenYAMM region maps.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Alegreya+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* layout: full-bleed globe on a night sky; atlas index docked left; region viewer takes over the screen */
+  --sky:#060a14; --panel:rgba(12,18,32,.86); --line:rgba(214,178,104,.28);
+  --gold:#e3bd6c; --ink:#ece4d2; --dim:#9aa3b5; --sea:#3f86c4;
+  --display:"Cinzel","Trajan Pro",Georgia,serif; --body:"Alegreya Sans","Segoe UI",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--sky);color:var(--ink);font-family:var(--body);overflow:hidden}
+canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+canvas#gl.drag{cursor:grabbing} canvas#gl.hit{cursor:pointer}
+#labels{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+.lb{position:absolute;left:0;top:0;white-space:nowrap;font-family:var(--display);color:#fff8e6;text-shadow:0 1px 3px #000,0 0 10px rgba(0,0,0,.8);will-change:transform,opacity}
+.lb.cont{font-size:clamp(15px,2.1vw,26px);font-weight:700;letter-spacing:.32em}
+.lb.reg{font-size:13.5px;font-weight:700;letter-spacing:.06em}
+.lb.lore{font-size:12px;font-style:italic;letter-spacing:.14em;color:#cfe4f5;font-family:var(--body)}
+.lb.sea{font-size:14px;letter-spacing:.4em;color:#a9cdea;font-weight:500}
+header{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;gap:14px;padding:12px 16px;pointer-events:none;z-index:5}
+header h1{font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:.2em;margin:0;color:var(--gold);text-shadow:0 1px 6px #000}
+header .sp{flex:1}
+header .home{pointer-events:auto;color:var(--ink);font-size:14px;text-decoration:none;border-bottom:1px solid var(--line)}
+header .home:hover{color:var(--gold)}
+button{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:7px 12px;cursor:pointer;pointer-events:auto;backdrop-filter:blur(6px)}
+button:hover{border-color:var(--gold);color:#fff}
+button:focus-visible,a:focus-visible,li:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+button[aria-pressed="true"]{background:rgba(227,189,108,.2);border-color:var(--gold)}
+button:disabled{opacity:.35;cursor:default}
+#index{position:fixed;top:56px;left:12px;bottom:12px;width:250px;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:auto;padding:6px 0 12px;z-index:4;backdrop-filter:blur(8px);transition:transform .25s}
+#index.closed{transform:translateX(-280px)}
+#index h2{font-family:var(--display);font-size:13px;letter-spacing:.16em;color:var(--gold);margin:14px 14px 2px}
+#index p{margin:0 14px 6px;font-size:12.5px;color:var(--dim)}
+#index ul{list-style:none;margin:0;padding:0}
+#index li{padding:5px 14px;cursor:pointer;font-size:15px;display:flex;justify-content:space-between;gap:8px}
+#index li small{color:var(--dim);font-size:11.5px;align-self:center}
+#index li:hover,#index li.on{background:rgba(227,189,108,.16);color:#fff}
+#hint{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);font-size:13.5px;color:var(--dim);background:rgba(6,10,20,.55);padding:5px 14px;border-radius:20px;pointer-events:none;white-space:nowrap;z-index:3}
+#tip{position:fixed;pointer-events:none;background:var(--panel);border:1px solid var(--gold);border-radius:6px;padding:6px 10px;z-index:6;display:none;max-width:260px}
+#tip b{font-family:var(--display);letter-spacing:.06em;display:block;font-size:14px}
+#tip span{font-size:12.5px;color:var(--dim)}
+#view{position:fixed;inset:0;background:#0b0e16;z-index:10;display:none;flex-direction:column;opacity:0;transition:opacity .3s}
+#view.on{display:flex} #view.vis{opacity:1}
+#vbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);background:#0d1322}
+#vbar h2{font-family:var(--display);font-size:19px;letter-spacing:.12em;margin:0;color:var(--gold)}
+#vbar .meta{font-size:13px;color:var(--dim)}
+#vbar .sp{flex:1}
+#compass{display:flex;gap:6px;flex-wrap:wrap}
+#compass button{font-size:13px;padding:5px 9px}
+#stage{flex:1;position:relative;overflow:hidden;cursor:grab;touch-action:none;background:#1c1c20}
+#stage.drag{cursor:grabbing}
+#stage img{position:absolute;left:0;top:0;transform-origin:0 0;max-width:none;user-select:none;-webkit-user-drag:none}
+#stage img.px{image-rendering:pixelated}
+#vfoot{position:absolute;right:12px;bottom:12px;display:flex;gap:6px}
+#err{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:24px;text-align:center;z-index:20;background:var(--sky)}
+@media (max-width:700px){header h1{font-size:14px;letter-spacing:.1em}#hint{display:none}.tog{display:none}}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="labels"></div>
+<header>
+  <button id="bIndex" aria-pressed="true" aria-controls="index">Atlas</button>
+  <h1>WORLD OF ENROTH</h1>
+  <a class="home" href="../">← Enroth Atlas</a>
+  <span class="sp"></span>
+  <button class="tog" id="bLabels" aria-pressed="true">Labels</button>
+  <button class="tog" id="bGrid" aria-pressed="false">Region borders</button>
+  <button class="tog" id="bClouds" aria-pressed="true">Clouds</button>
+</header>
+<nav id="index" aria-label="Atlas index"></nav>
+<div id="hint">Drag to spin · scroll to zoom · click a region to open its map</div>
+<div id="tip"><b></b><span></span></div>
+<section id="view" aria-label="Region map">
+  <div id="vbar">
+    <button id="bBack">← Globe</button>
+    <div><h2 id="vName"></h2><div class="meta" id="vMeta"></div></div>
+    <span class="sp"></span>
+    <div id="compass"></div>
+  </div>
+  <div id="stage"><img id="vImg" alt="" draggable="false">
+    <div id="vfoot"><button id="zOut" aria-label="Zoom out">−</button><button id="zFit">Fit</button><button id="zIn" aria-label="Zoom in">+</button></div>
+  </div>
+</section>
+<div id="err"><p>This globe needs WebGL 2, which this browser or device did not provide. The region maps are still available from the Atlas list.</p></div>
+<script>
+const META={"cell":12.0,"continents":[{"key":"enroth","title":"Enroth","lon0":-100,"lat0":22,"xc":2.5,"yc":1.5,"ext":[-1,-1,6,4],"img":"img/enroth.webp"},{"key":"jadame","title":"Jadame","lon0":-8,"lat0":24,"xc":1.5,"yc":1.5,"ext":[-1,-1,4,5],"img":"img/jadame.webp"},{"key":"antagarich","title":"Antagarich","lon0":75,"lat0":-18,"xc":2.25,"yc":2.0,"ext":[-1.25,-1,6.1,5.3],"img":"img/antagarich.webp"}],"regions":[{"id":"mm6-outa1","game":"mm6","name":"Sweet Water","c":0,"rect":[0,0,1,1],"img":"maps/mm6-outa1.webp"},{"id":"mm6-outb1","game":"mm6","name":"Kriegspire","c":0,"rect":[1,0,2,1],"img":"maps/mm6-outb1.webp"},{"id":"mm6-outc1","game":"mm6","name":"Frozen Highlands","c":0,"rect":[2,0,3,1],"img":"maps/mm6-outc1.webp"},{"id":"mm6-outd1","game":"mm6","name":"Silver Cove","c":0,"rect":[3,0,4,1],"img":"maps/mm6-outd1.webp"},{"id":"mm6-oute1","game":"mm6","name":"Eel Infested Waters","c":0,"rect":[4,0,5,1],"img":"maps/mm6-oute1.webp"},{"id":"mm6-outa2","game":"mm6","name":"Paradise Valley","c":0,"rect":[0,1,1,2],"img":"maps/mm6-outa2.webp"},{"id":"mm6-outb2","game":"mm6","name":"Blackshire","c":0,"rect":[1,1,2,2],"img":"maps/mm6-outb2.webp"},{"id":"mm6-outc2","game":"mm6","name":"Free Haven","c":0,"rect":[2,1,3,2],"img":"maps/mm6-outc2.webp"},{"id":"mm6-outd2","game":"mm6","name":"Bootleg Bay","c":0,"rect":[3,1,4,2],"img":"maps/mm6-outd2.webp"},{"id":"mm6-oute2","game":"mm6","name":"Misty Islands","c":0,"rect":[4,1,5,2],"img":"maps/mm6-oute2.webp"},{"id":"mm6-outa3","game":"mm6","name":"Hermit's Isle","c":0,"rect":[0,2,1,3],"img":"maps/mm6-outa3.webp"},{"id":"mm6-outb3","game":"mm6","name":"Dragonsand","c":0,"rect":[1,2,2,3],"img":"maps/mm6-outb3.webp"},{"id":"mm6-outc3","game":"mm6","name":"Mire of the Damned","c":0,"rect":[2,2,3,3],"img":"maps/mm6-outc3.webp"},{"id":"mm6-outd3","game":"mm6","name":"Castle Ironfist","c":0,"rect":[3,2,4,3],"img":"maps/mm6-outd3.webp"},{"id":"mm6-oute3","game":"mm6","name":"New Sorpigal","c":0,"rect":[4,2,5,3],"img":"maps/mm6-oute3.webp"},{"id":"mm8-out07","game":"mm8","name":"Murmurwoods","c":1,"rect":[0,0,1,1],"img":"maps/mm8-out07.webp"},{"id":"mm8-out03","game":"mm8","name":"Alvar","c":1,"rect":[1,0,2,1],"img":"maps/mm8-out03.webp"},{"id":"mm8-out04","game":"mm8","name":"Ironsand Desert","c":1,"rect":[2,0,3,1],"img":"maps/mm8-out04.webp"},{"id":"mm8-out05","game":"mm8","name":"Garrote Gorge","c":1,"rect":[0,1,1,2],"img":"maps/mm8-out05.webp"},{"id":"mm8-out02","game":"mm8","name":"Ravenshore","c":1,"rect":[1,1,2,2],"img":"maps/mm8-out02.webp"},{"id":"mm8-out06","game":"mm8","name":"Shadowspire","c":1,"rect":[2,1,3,2],"img":"maps/mm8-out06.webp"},{"id":"mm8-out08","game":"mm8","name":"Ravage Roaming","c":1,"rect":[0,2,1,3],"img":"maps/mm8-out08.webp"},{"id":"mm8-out01","game":"mm8","name":"Dagger Wound Islands","c":1,"rect":[2,2,3,3],"img":"maps/mm8-out01.webp"},{"id":"mm8-out13","game":"mm8","name":"Regna Island","c":1,"rect":[1,2.85,2,3.85],"img":"maps/mm8-out13.webp"},{"id":"mm7-7out05","game":"mm7","name":"Deyja","c":2,"rect":[1,0,2,1],"img":"maps/mm7-7out05.webp"},{"id":"mm7-7out04","game":"mm7","name":"Tularean Forest","c":2,"rect":[2,0,3,1],"img":"maps/mm7-7out04.webp"},{"id":"mm7-out14","game":"mm7","name":"Avlee","c":2,"rect":[3,0,4,1],"img":"maps/mm7-out14.webp"},{"id":"mm7-7out13","game":"mm7","name":"Tatalia","c":2,"rect":[0,1,1,2],"img":"maps/mm7-7out13.webp"},{"id":"mm7-7out03","game":"mm7","name":"Erathia","c":2,"rect":[1,1,2,2],"img":"maps/mm7-7out03.webp"},{"id":"mm7-7out02","game":"mm7","name":"Harmondale","c":2,"rect":[2,1,3,2],"img":"maps/mm7-7out02.webp"},{"id":"mm7-7out06","game":"mm7","name":"Bracada Desert","c":2,"rect":[1,2,2,3],"img":"maps/mm7-7out06.webp"},{"id":"mm7-out11","game":"mm7","name":"Barrow Downs","c":2,"rect":[2,2,3,3],"img":"maps/mm7-out11.webp"},{"id":"mm7-out12","game":"mm7","name":"Land of the Giants","c":2,"rect":[3,2,4,3],"img":"maps/mm7-out12.webp"},{"id":"mm7-7out01","game":"mm7","name":"Emerald Island","c":2,"rect":[4.6,0.15,5.6,1.15],"img":"maps/mm7-7out01.webp"},{"id":"mm7-out09","game":"mm7","name":"Evenmorn Island","c":2,"rect":[1.3,3.35,2.3,4.35],"img":"maps/mm7-out09.webp"},{"id":"mm7-out10","game":"mm7","name":"Mount Nighon","c":2,"rect":[3.55,3.5,4.55,4.5],"img":"maps/mm7-out10.webp"}]};
+const EXTRAS=[
+ {g:'mm7',id:'mm7-7out15',name:'The Shoals',note:'underwater'},
+ {g:'mm7',id:'mm7-7d25',name:'Celeste',note:'city in the clouds'},
+ {g:'mm7',id:'mm7-7d26',name:'The Pit',note:'under Deyja'},
+ {g:'mm7',id:'mm7-7d05',name:'The Arena',note:''},
+ {g:'mm8',id:'mm8-elema',name:'Plane of Air',note:''},
+ {g:'mm8',id:'mm8-eleme',name:'Plane of Earth',note:''},
+ {g:'mm8',id:'mm8-elemf',name:'Plane of Fire',note:''},
+ {g:'mm8',id:'mm8-elemw',name:'Plane of Water',note:''},
+ {g:'mm8',id:'mm8-pbp',name:'Plane Between Planes',note:''},
+ {g:'mm8',id:'mm8-d42',name:'The Arena',note:''},
+ {g:'mm8',id:'mm8-out15',name:'out15',note:'spare outdoor map'}];
+const GAME={mm6:'Might and Magic VI · The Mandate of Heaven',mm7:'Might and Magic VII · For Blood and Honor',mm8:'Might and Magic VIII · Day of the Destroyer'};
+const LORE=[
+ {t:'Vori',c:2,x:-0.3,y:-0.05,k:'lore'},{t:'Krewlod',c:2,x:0.45,y:2.45,k:'lore'},
+ {t:'Karigor',lon:-52,lat:-20,k:'lore'},{t:'Regnan Archipelago',c:1,x:2.6,y:3.75,k:'lore'},
+ {t:'ENDLESS OCEAN',lon:-45,lat:-42,k:'sea'},{t:'ENDLESS OCEAN',lon:165,lat:-8,k:'sea'}];
+const D2R=Math.PI/180, CELL=META.cell*D2R, C=META.continents, RG=META.regions;
+const byId={}; RG.forEach(r=>{r.file=r.id.replace('-','/')+'.odm';byId[r.id]=r});
+EXTRAS.forEach(e=>{byId[e.id]={id:e.id,name:e.name,game:e.g,img:'maps/'+e.id+'.webp',extra:true,note:e.note}});
+function loc2ll(c,x,y){const lat=c.lat0*D2R-(y-c.yc)*CELL;return [c.lon0*D2R+(x-c.xc)*CELL/Math.cos(lat),lat]}
+function wrap(a){return a-2*Math.PI*Math.round(a/(2*Math.PI))}
+function ll2loc(c,lon,lat){const dl=wrap(lon-c.lon0*D2R);return [c.xc+dl*Math.cos(lat)/CELL,c.yc+(c.lat0*D2R-lat)/CELL,dl]}
+RG.forEach(r=>{const c=C[r.c];r.ll=loc2ll(c,(r.rect[0]+r.rect[2])/2,(r.rect[1]+r.rect[3])/2);
+  r.nb={};const grid=Number.isInteger(r.rect[0])&&Number.isInteger(r.rect[1]);
+  if(grid)[['N',0,-1],['E',1,0],['S',0,1],['W',-1,0]].forEach(([d,dx,dy])=>{const n=RG.find(q=>q.c===r.c&&q.rect[0]===r.rect[0]+dx&&q.rect[1]===r.rect[1]+dy);if(n)r.nb[d]=n.id})});
+
+/* ---------- state ---------- */
+const S={yaw:-55*D2R,pitch:14*D2R,zoom:1,vyaw:0,auto:true,hover:null,hla:0,grid:0,clouds:1,labels:true,indexOpen:true,anim:null};
+const PMAX=30*D2R, ZMIN=0.75, ZMAX=7;
+const cv=document.getElementById('gl'); const gl=cv.getContext('webgl2',{antialias:false,alpha:false});
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches; if(reduce)S.auto=false;
+
+const VS=`#version 300 es
+in vec2 p; void main(){gl_Position=vec4(p,0.,1.);}`;
+const FS=`#version 300 es
+precision highp float; out vec4 o;
+uniform vec2 uRes,uCen; uniform float uR,uYaw,uPitch,uZoom,uTime,uCell,uGrid,uClouds,uHLa;
+uniform sampler2D uBase,uC0,uC1,uC2;
+uniform vec4 uCA[3]; uniform vec4 uCE[3]; uniform vec4 uHL; uniform int uHLc;
+uniform vec4 uRects[40]; uniform int uRectC[40]; uniform int uNR;
+const float PI=3.14159265;
+float h21(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+float h31(vec3 p){p=fract(p*.1031);p+=dot(p,p.yzx+33.33);return fract((p.x+p.y)*p.z);}
+float vn(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.-2.*f);
+ return mix(mix(mix(h31(i),h31(i+vec3(1,0,0)),f.x),mix(h31(i+vec3(0,1,0)),h31(i+vec3(1,1,0)),f.x),f.y),
+            mix(mix(h31(i+vec3(0,0,1)),h31(i+vec3(1,0,1)),f.x),mix(h31(i+vec3(0,1,1)),h31(i+vec3(1,1,1)),f.x),f.y),f.z);}
+float fbm(vec3 p){float a=.5,s=0.;for(int i=0;i<5;i++){s+=a*vn(p);p=p*2.03+vec3(7.1,3.3,5.7);a*=.5;}return s;}
+float rectLine(vec2 q,vec4 r,float w){vec2 d=max(r.xy-q,q-r.zw);float outside=max(d.x,d.y);return 1.-smoothstep(0.,w,abs(outside));}
+vec3 cont(vec3 col,sampler2D t,int i,float lon,float lat){
+  vec4 A=uCA[i],E=uCE[i]; float dl=lon-A.x; dl-=2.*PI*floor(dl/(2.*PI)+.5);
+  vec2 q=vec2(A.z+dl*cos(lat)/uCell, A.w+(A.y-lat)/uCell);
+  vec2 a=(q-E.xy)/(E.zw-E.xy);
+  vec2 dd=min(q-E.xy,E.zw-q); float m=smoothstep(0.02,0.3,min(dd.x,dd.y))*step(abs(dl),1.9);
+  if(m>0.){ vec3 tc=texture(t,a).rgb; col=mix(col,tc,m);
+    float lw=0.012+0.02/uZoom;
+    if(uGrid>0.){float g=0.;for(int k=0;k<40;k++){if(k>=uNR)break;if(uRectC[k]==i)g=max(g,rectLine(q,uRects[k],lw));}col=mix(col,vec3(1.,.95,.8),g*.45*uGrid);}
+    if(uHLc==i&&uHLa>0.){vec2 d=max(uHL.xy-q,q-uHL.zw);float outside=max(d.x,d.y);
+      float inside=1.-smoothstep(-0.005,0.005,outside);
+      col=mix(col,col*1.12+vec3(.16,.12,.03),inside*uHLa);
+      col=mix(col,vec3(1.,.84,.42),rectLine(q,uHL,lw*1.6)*uHLa);}
+  }
+  return col;}
+void main(){
+  vec2 p=(gl_FragCoord.xy-uCen)/uR; float r2=dot(p,p);
+  // sky
+  vec2 sp=gl_FragCoord.xy+vec2(uYaw*260.,0.); vec2 cell=floor(sp/3.); float st=h21(cell);
+  float star=step(.9975,st)*(.35+.65*h21(cell+7.))*(.75+.25*sin(uTime*1.5+st*90.));
+  vec3 sky=vec3(.018,.03,.06)+vec3(.02,.03,.07)*fbm(vec3(sp*.0022,1.))+vec3(star);
+  float r=sqrt(r2);
+  if(r2>=1.){ float g=exp(-(r-1.)*uZoom*9.)*.55; o=vec4(sky+vec3(.25,.5,.95)*g,1.); return; }
+  vec3 n=vec3(p,sqrt(1.-r2));
+  float cp=cos(uPitch),spi=sin(uPitch),cy=cos(uYaw),sy=sin(uYaw);
+  vec3 d=vec3(n.x,n.y*cp+n.z*spi,-n.y*spi+n.z*cp);
+  d=vec3(d.x*cy+d.z*sy,d.y,-d.x*sy+d.z*cy);
+  float lon=atan(d.x,d.z),lat=asin(clamp(d.y,-1.,1.));
+  float u=lon/(2.*PI)+.5,v=.5-lat/PI;
+  vec2 uvA=vec2(u,v),uvB=vec2(fract(u+.5)-.5,v);
+  vec2 dx=dFdx(uvA),dy=dFdy(uvA),dxB=dFdx(uvB),dyB=dFdy(uvB);
+  if(abs(dxB.x)+abs(dyB.x)<abs(dx.x)+abs(dy.x)){dx=dxB;dy=dyB;}
+  vec3 col=textureGrad(uBase,uvA,dx,dy).rgb;
+  col=cont(col,uC0,0,lon,lat); col=cont(col,uC1,1,lon,lat); col=cont(col,uC2,2,lon,lat);
+  float water=smoothstep(.02,.12,col.b-max(col.r,col.g)*1.05);
+  vec3 L=normalize(vec3(-.45,.5,.74));
+  float diff=clamp(dot(n,L),0.,1.);
+  float flat_=smoothstep(1.,3.2,uZoom)*.8;
+  float shade=mix(.32+.82*pow(diff,.8),1.,flat_);
+  float cl=0.;
+  if(uClouds>0.){ float f=fbm(d*3.2+vec3(uTime*.012,0.,uTime*.007)); f+=.35*fbm(d*9.+vec3(0.,uTime*.02,0.))-.17;
+    cl=smoothstep(.56,.78,f)*.6*uClouds*(1.-smoothstep(1.25,2.4,uZoom)); }
+  col=mix(col,vec3(.97,.98,1.),cl);
+  col*=shade;
+  vec3 hv=normalize(L+vec3(0,0,1)); col+=vec3(1.,.95,.85)*pow(max(dot(n,hv),0.),70.)*.35*water*(1.-cl)*(1.-flat_);
+  float rim=pow(1.-n.z,3.2); col=mix(col,vec3(.35,.62,1.),rim*.75*(1.-flat_*.6));
+  col=mix(col,sky,smoothstep(1.-2.5/uR,1.,r)); 
+  o=vec4(col,1.);
+}`;
+function sh(t,s){const x=gl.createShader(t);gl.shaderSource(x,s);gl.compileShader(x);if(!gl.getShaderParameter(x,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(x));return x}
+let prog,U={},ready=false;
+function initGL(){
+  prog=gl.createProgram();gl.attachShader(prog,sh(gl.VERTEX_SHADER,VS));gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,FS));gl.linkProgram(prog);
+  if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(prog));
+  gl.useProgram(prog);
+  const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+  const l=gl.getAttribLocation(prog,'p');gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,2,gl.FLOAT,false,0,0);
+  ['uRes','uCen','uR','uYaw','uPitch','uZoom','uTime','uCell','uGrid','uClouds','uHLa','uBase','uC0','uC1','uC2','uCA','uCE','uHL','uHLc','uRects','uRectC','uNR'].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
+  gl.uniform1f(U.uCell,CELL);
+  gl.uniform4fv(U.uCA,C.flatMap(c=>[c.lon0*D2R,c.lat0*D2R,c.xc,c.yc]));
+  gl.uniform4fv(U.uCE,C.flatMap(c=>c.ext));
+  const rects=new Float32Array(160),rc=new Int32Array(40);RG.forEach((r,i)=>{rects.set(r.rect,i*4);rc[i]=r.c});
+  gl.uniform4fv(U.uRects,rects);gl.uniform1iv(U.uRectC,rc);gl.uniform1i(U.uNR,RG.length);
+  const aniso=gl.getExtension('EXT_texture_filter_anisotropic');
+  const maxT=gl.getParameter(gl.MAX_TEXTURE_SIZE);
+  const srcs=['img/world.webp',...C.map(c=>c.img)];
+  return Promise.all(srcs.map((s,i)=>new Promise((ok,no)=>{const im=new Image();im.onload=()=>{
+    let src=im; if(im.width>maxT||im.height>maxT){const k=maxT/Math.max(im.width,im.height);const c2=document.createElement('canvas');c2.width=im.width*k|0;c2.height=im.height*k|0;c2.getContext('2d').drawImage(im,0,0,c2.width,c2.height);src=c2}
+    const t=gl.createTexture();gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,t);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,src);gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,i===0?gl.REPEAT:gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    if(aniso)gl.texParameterf(gl.TEXTURE_2D,aniso.TEXTURE_MAX_ANISOTROPY_EXT,Math.min(8,gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
+    ok()};im.onerror=()=>no(new Error('Could not load '+s));im.src=s})))
+   .then(()=>{gl.uniform1i(U.uBase,0);gl.uniform1i(U.uC0,1);gl.uniform1i(U.uC1,2);gl.uniform1i(U.uC2,3);ready=true});
+}
+/* ---------- geometry ---------- */
+let G={w:1,h:1,cx:0,cy:0,R:1,dpr:1};
+function layout(){const dpr=Math.min(devicePixelRatio||1,2);const w=innerWidth,h=innerHeight;
+  if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr)}
+  const off=(S.indexOpen&&w>900)?131:0;
+  G={w,h,dpr,cx:w/2+off,cy:h/2+14,R:0.42*Math.min(w-2*off,h)*S.zoom}}
+function screen2ll(sx,sy){const px=(sx-G.cx)/G.R,py=-(sy-G.cy)/G.R,r2=px*px+py*py;if(r2>=1)return null;
+  const nz=Math.sqrt(1-r2),cp=Math.cos(S.pitch),sp=Math.sin(S.pitch),cy=Math.cos(S.yaw),sy_=Math.sin(S.yaw);
+  let x=px,y=py*cp+nz*sp,z=-py*sp+nz*cp;const X=x*cy+z*sy_,Z=-x*sy_+z*cy;
+  return [Math.atan2(X,Z),Math.asin(Math.max(-1,Math.min(1,y)))]}
+function ll2screen(lon,lat){const cl=Math.cos(lat),x=cl*Math.sin(lon),y=Math.sin(lat),z=cl*Math.cos(lon);
+  const cy=Math.cos(S.yaw),sy_=Math.sin(S.yaw),cp=Math.cos(S.pitch),sp=Math.sin(S.pitch);
+  const x1=x*cy-z*sy_,z1=x*sy_+z*cy,y2=y*cp-z1*sp,z2=y*sp+z1*cp;return [G.cx+x1*G.R,G.cy-y2*G.R,z2]}
+function pick(sx,sy){const ll=screen2ll(sx,sy);if(!ll)return null;let best=null,bd=9;
+  for(const r of RG){const [x,y,dl]=ll2loc(C[r.c],ll[0],ll[1]);if(Math.abs(dl)>1.9)continue;
+    if(x>=r.rect[0]&&x<=r.rect[2]&&y>=r.rect[1]&&y<=r.rect[3]){const d=Math.hypot(x-(r.rect[0]+r.rect[2])/2,y-(r.rect[1]+r.rect[3])/2);if(d<bd){bd=d;best=r}}}
+  return best}
+/* ---------- labels ---------- */
+const LB=[];const lbRoot=document.getElementById('labels');
+function addLabel(t,k,lon,lat){const e=document.createElement('div');e.className='lb '+k;e.textContent=t;lbRoot.appendChild(e);LB.push({e,k,lon,lat})}
+C.forEach((c,i)=>{const xs=RG.filter(r=>r.c===i&&Number.isInteger(r.rect[1]));const x=(Math.min(...xs.map(r=>r.rect[0]))+Math.max(...xs.map(r=>r.rect[2])))/2;const y=Math.min(...xs.map(r=>r.rect[1]))-0.55;const ll=loc2ll(c,x,y);addLabel(c.title.toUpperCase(),'cont',ll[0],ll[1])});
+RG.forEach(r=>{const ll=loc2ll(C[r.c],(r.rect[0]+r.rect[2])/2,r.rect[1]+0.5);addLabel(r.name,'reg',ll[0],ll[1])});
+LORE.forEach(l=>{const ll=l.c!==undefined?loc2ll(C[l.c],l.x,l.y):[l.lon*D2R,l.lat*D2R];addLabel(l.t,l.k,ll[0],ll[1])});
+function placeLabels(){for(const l of LB){let op=0;const s=ll2screen(l.lon,l.lat);
+  if(S.labels&&s[2]>0.12){const f=Math.min(1,(s[2]-0.12)/0.25);
+    if(l.k==='cont')op=f*(1-Math.min(1,Math.max(0,(S.zoom-2.6)/1.2)));
+    else if(l.k==='reg')op=f*Math.min(1,Math.max(0,(S.zoom-1.45)/0.5));
+    else op=f*(l.k==='sea'?0.8:Math.min(1,Math.max(0,(S.zoom-1.1)/0.4)))}
+  if(op<=0.01){if(l.vis!==false){l.e.style.opacity=0;l.vis=false}continue}
+  l.vis=true;l.e.style.opacity=op.toFixed(2);l.e.style.transform=`translate(${s[0].toFixed(1)}px,${s[1].toFixed(1)}px) translate(-50%,-50%)`}}
+/* ---------- render loop ---------- */
+let t0=performance.now(),last=t0;
+function frame(now){const dt=Math.min(0.05,(now-last)/1000);last=now;
+  if(S.anim){const a=S.anim,k=Math.min(1,(now-a.t0)/a.dur),e=k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;
+    S.yaw=a.y0+(a.y1-a.y0)*e;S.pitch=a.p0+(a.p1-a.p0)*e;S.zoom=Math.exp(Math.log(a.z0)+(Math.log(a.z1)-Math.log(a.z0))*e);
+    if(k>=1){S.anim=null;a.done&&a.done()}}
+  else if(!drag){ if(S.auto)S.yaw+=dt*0.06; else if(Math.abs(S.vyaw)>1e-4){S.yaw+=S.vyaw*dt;S.vyaw*=Math.pow(0.04,dt)} }
+  S.hla+=((S.hover?1:0)-S.hla)*Math.min(1,dt*14);
+  layout();
+  if(ready&&!viewing){gl.viewport(0,0,cv.width,cv.height);
+    gl.uniform2f(U.uRes,cv.width,cv.height);gl.uniform2f(U.uCen,G.cx*G.dpr,(G.h-G.cy)*G.dpr);gl.uniform1f(U.uR,G.R*G.dpr);
+    gl.uniform1f(U.uYaw,wrap(S.yaw));gl.uniform1f(U.uPitch,S.pitch);gl.uniform1f(U.uZoom,S.zoom);gl.uniform1f(U.uTime,reduce?0:(now-t0)/1000);
+    gl.uniform1f(U.uGrid,S.grid);gl.uniform1f(U.uClouds,S.clouds);gl.uniform1f(U.uHLa,S.hla);
+    if(S.hover){gl.uniform4fv(U.uHL,S.hover.rect);gl.uniform1i(U.uHLc,S.hover.c)}
+    gl.drawArrays(gl.TRIANGLE_STRIP,0,4);placeLabels()}
+  requestAnimationFrame(frame)}
+/* ---------- interaction ---------- */
+let drag=null,viewing=false;const pts=new Map();const tip=document.getElementById('tip');
+function setHover(r,x,y){if(S.hover!==r){S.hover=r||S.hover&&null;document.querySelectorAll('#index li.on').forEach(e=>e.classList.remove('on'));if(r){const li=document.querySelector(`#index li[data-id="${r.id}"]`);li&&li.classList.add('on')}}
+  cv.classList.toggle('hit',!!r);
+  if(r&&x!==undefined){tip.style.display='block';tip.firstChild.textContent=r.name;tip.lastChild.textContent=GAME[r.game].replace('Might and Magic ','MM ')+' · click to open';
+    tip.style.left=Math.min(innerWidth-270,x+16)+'px';tip.style.top=Math.min(innerHeight-60,y+16)+'px'}else tip.style.display='none'}
+cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);pts.set(e.pointerId,[e.clientX,e.clientY]);S.auto=false;S.anim=null;
+  if(pts.size===1){drag={x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY,moved:false,t:performance.now()};S.vyaw=0;cv.classList.add('drag')}
+  else if(pts.size===2){const p=[...pts.values()];drag={pinch:Math.hypot(p[0][0]-p[1][0],p[0][1]-p[1][1]),z:S.zoom,moved:true}}});
+cv.addEventListener('pointermove',e=>{
+  if(pts.has(e.pointerId))pts.set(e.pointerId,[e.clientX,e.clientY]);
+  if(drag&&drag.pinch&&pts.size===2){const p=[...pts.values()];S.zoom=Math.max(ZMIN,Math.min(ZMAX,drag.z*Math.hypot(p[0][0]-p[1][0],p[0][1]-p[1][1])/drag.pinch));return}
+  if(drag&&!drag.pinch){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)>5)drag.moved=true;
+    if(drag.moved){const now=performance.now(),dtt=Math.max(1,now-drag.t)/1000;const dyaw=-dx/G.R;S.yaw+=dyaw;S.vyaw=0.6*S.vyaw+0.4*dyaw/dtt;
+      S.pitch=Math.max(-PMAX,Math.min(PMAX,S.pitch+dy/G.R));drag.t=now;setHover(null)}
+    drag.x=e.clientX;drag.y=e.clientY;return}
+  if(e.pointerType==='mouse')setHover(pick(e.clientX,e.clientY),e.clientX,e.clientY)});
+function up(e){pts.delete(e.pointerId);cv.classList.remove('drag');if(!drag)return;const d=drag;if(pts.size===0)drag=null;else return;
+  if(!d.moved){S.vyaw=0;const r=pick(e.clientX,e.clientY);if(r)flyTo(r)}else if(performance.now()-d.t>120)S.vyaw=0}
+cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',e=>{pts.delete(e.pointerId);drag=null;cv.classList.remove('drag')});
+cv.addEventListener('pointerleave',()=>{if(!drag)setHover(null)});
+cv.addEventListener('wheel',e=>{e.preventDefault();S.auto=false;S.anim=null;S.zoom=Math.max(ZMIN,Math.min(ZMAX,S.zoom*Math.exp(-e.deltaY*0.0014)))},{passive:false});
+function flyTo(r,open=true){setHover(null);const y1=S.yaw+wrap(r.ll[0]-S.yaw);S.auto=false;S.vyaw=0;
+  const go=()=>open&&openView(r.id);
+  if(reduce||!ready){S.yaw=y1;S.pitch=Math.max(-PMAX,Math.min(PMAX,r.ll[1]));S.zoom=3;go();return}
+  S.anim={t0:performance.now(),dur:750,y0:S.yaw,y1,p0:S.pitch,p1:Math.max(-PMAX,Math.min(PMAX,r.ll[1])),z0:S.zoom,z1:Math.max(S.zoom,4.2),done:go}}
+/* ---------- region viewer ---------- */
+const view=document.getElementById('view'),stage=document.getElementById('stage'),vImg=document.getElementById('vImg');
+let V={s:1,x:0,y:0,fit:1,id:null};
+function applyV(){vImg.style.transform=`translate(${V.x}px,${V.y}px) scale(${V.s})`;vImg.classList.toggle('px',V.s>1.4)}
+function fit(){const w=stage.clientWidth,h=stage.clientHeight,iw=vImg.naturalWidth||1,ih=vImg.naturalHeight||1;V.fit=Math.min(w/iw,h/ih)*0.98;V.s=V.fit;V.x=(w-iw*V.s)/2;V.y=(h-ih*V.s)/2;applyV()}
+function zoomAt(f,cx,cy){const s=Math.max(V.fit*0.5,Math.min(12,V.s*f));V.x=cx-(cx-V.x)*s/V.s;V.y=cy-(cy-V.y)*s/V.s;V.s=s;applyV()}
+function openView(id,push=true){const r=byId[id];if(!r)return;V.id=id;viewing=true;
+  document.getElementById('vName').textContent=r.name;
+  document.getElementById('vMeta').textContent=GAME[r.game]+(r.note?' · '+r.note:'')+' · '+id.replace(/^mm\d-/,'');
+  const cp=document.getElementById('compass');cp.textContent='';
+  if(r.nb)[['W','←'],['N','↑'],['S','↓'],['E','→']].forEach(([d,a])=>{const n=r.nb[d];if(!n)return;const b=document.createElement('button');b.textContent=a+' '+byId[n].name;b.title='Go '+({N:'north',S:'south',E:'east',W:'west'})[d];b.onclick=()=>{const q=byId[n];S.yaw+=wrap(q.ll[0]-S.yaw);S.pitch=Math.max(-PMAX,Math.min(PMAX,q.ll[1]));openView(n)};cp.appendChild(b)});
+  vImg.onload=fit;vImg.alt='OpenYAMM map of '+r.name;vImg.src=r.img;if(vImg.complete&&vImg.naturalWidth)fit();
+  view.classList.add('on');requestAnimationFrame(()=>view.classList.add('vis'));
+  tip.style.display='none';
+  if(push){try{history.replaceState(null,'','#'+id)}catch(e){location.hash=id}}}
+function closeView(){if(!viewing)return;viewing=false;view.classList.remove('vis');setTimeout(()=>{if(!viewing)view.classList.remove('on')},300);
+  try{history.replaceState(null,'','#')}catch(e){}
+  if(S.zoom>2.4&&!reduce)S.anim={t0:performance.now(),dur:600,y0:S.yaw,y1:S.yaw,p0:S.pitch,p1:S.pitch,z0:S.zoom,z1:2.2};else if(S.zoom>2.4)S.zoom=2.2}
+document.getElementById('bBack').onclick=closeView;
+addEventListener('keydown',e=>{if(e.key==='Escape')closeView();
+  if(viewing){const r=byId[V.id],m={ArrowUp:'N',ArrowDown:'S',ArrowLeft:'W',ArrowRight:'E'}[e.key];if(m&&r.nb&&r.nb[m]){e.preventDefault();openView(r.nb[m])}}});
+let vd=null;const vp=new Map();
+stage.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;stage.setPointerCapture(e.pointerId);vp.set(e.pointerId,[e.clientX,e.clientY]);
+  if(vp.size===2){const p=[...vp.values()];vd={pinch:Math.hypot(p[0][0]-p[1][0],p[0][1]-p[1][1])}}else vd={x:e.clientX,y:e.clientY};stage.classList.add('drag')});
+stage.addEventListener('pointermove',e=>{if(!vp.has(e.pointerId))return;vp.set(e.pointerId,[e.clientX,e.clientY]);const b=stage.getBoundingClientRect();
+  if(vd&&vd.pinch&&vp.size===2){const p=[...vp.values()],dd=Math.hypot(p[0][0]-p[1][0],p[0][1]-p[1][1]);zoomAt(dd/vd.pinch,(p[0][0]+p[1][0])/2-b.left,(p[0][1]+p[1][1])/2-b.top);vd.pinch=dd}
+  else if(vd&&vd.x!==undefined){V.x+=e.clientX-vd.x;V.y+=e.clientY-vd.y;vd.x=e.clientX;vd.y=e.clientY;applyV()}});
+const vup=e=>{vp.delete(e.pointerId);vd=vp.size===1?{x:[...vp.values()][0][0],y:[...vp.values()][0][1]}:null;if(!vp.size)stage.classList.remove('drag')};
+stage.addEventListener('pointerup',vup);stage.addEventListener('pointercancel',vup);
+stage.addEventListener('wheel',e=>{e.preventDefault();const b=stage.getBoundingClientRect();zoomAt(Math.exp(-e.deltaY*0.0016),e.clientX-b.left,e.clientY-b.top)},{passive:false});
+stage.addEventListener('dblclick',fit);
+document.getElementById('zIn').onclick=()=>zoomAt(1.4,stage.clientWidth/2,stage.clientHeight/2);
+document.getElementById('zOut').onclick=()=>zoomAt(1/1.4,stage.clientWidth/2,stage.clientHeight/2);
+document.getElementById('zFit').onclick=fit;
+addEventListener('resize',()=>{if(viewing)fit()});
+/* ---------- index ---------- */
+const idx=document.getElementById('index');
+function section(title,sub,items){const h=document.createElement('h2');h.textContent=title;idx.appendChild(h);if(sub){const p=document.createElement('p');p.textContent=sub;idx.appendChild(p)}
+  const ul=document.createElement('ul');items.forEach(r=>{const li=document.createElement('li');li.tabIndex=0;li.dataset.id=r.id;li.setAttribute('role','button');
+    const a=document.createElement('span');a.textContent=r.name;li.appendChild(a);if(r.note){const s=document.createElement('small');s.textContent=r.note;li.appendChild(s)}
+    const go=()=>{r.extra?openView(r.id):flyTo(r)};li.onclick=go;li.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go()}};
+    if(!r.extra){li.onmouseenter=()=>{S.hover=r};li.onmouseleave=()=>{if(S.hover===r)S.hover=null}}
+    ul.appendChild(li)});idx.appendChild(ul)}
+C.forEach((c,i)=>{const rs=RG.filter(r=>r.c===i);section(c.title,GAME[rs[0].game],rs)});
+section('Beyond the map','Planes, hidden places and arenas',EXTRAS.map(e=>byId[e.id]));
+function tog(id,fn){const b=document.getElementById(id);b.onclick=()=>{const v=b.getAttribute('aria-pressed')!=='true';b.setAttribute('aria-pressed',v);fn(v)}}
+tog('bIndex',v=>{S.indexOpen=v;idx.classList.toggle('closed',!v)});
+tog('bLabels',v=>{S.labels=v});tog('bGrid',v=>{S.grid=v?1:0});tog('bClouds',v=>{S.clouds=v?1:0});
+if(innerWidth<=900){S.indexOpen=false;idx.classList.add('closed');document.getElementById('bIndex').setAttribute('aria-pressed','false')}
+/* ---------- boot ---------- */
+function route(){const id=location.hash.slice(1);if(id&&byId[id]){const r=byId[id];if(!r.extra){S.yaw=r.ll[0];S.pitch=Math.max(-PMAX,Math.min(PMAX,r.ll[1]));S.zoom=3;S.auto=false}openView(id,false)}}
+if(!gl){document.getElementById('err').style.display='flex';document.getElementById('err').style.pointerEvents='none';route()}
+else{try{initGL().then(()=>{route()}).catch(e=>{console.error(e);document.getElementById('hint').textContent=e.message})}catch(e){console.error(e);document.getElementById('hint').textContent='Shader error: '+e.message}
+  requestAnimationFrame(frame)}
+addEventListener('hashchange',route);
+</script>
+</body>
+</html>
