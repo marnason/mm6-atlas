@@ -4,6 +4,18 @@ A responsive, searchable, installable, offline-first single-page restoration of 
 
 The atlas also includes 15 higher-resolution region maps, 646 mapped places, 30 named MM6 Artifacts and Relics, and documented item turn-ins derived from OpenYAMM. Coordinates are approximate in-game X/Y positions, not real-world GPS. OpenYAMM source and asset credits are in [LICENSE.md](LICENSE.md).
 
+## World globe
+
+`src/globe/` is a standalone page (linked as **Globe** in the main navigation) that shows Enroth, Jadame and Antagarich on a rotatable planet. Hovering highlights a region's rectangle and clicking opens that region's OpenYAMM map. The globe textures are stitched and recoloured from OpenYAMM renders of the MM6, MM7 and MM8 outdoor maps; coast beyond the game maps, Vori, Krewlod and the ocean islands are invented filler.
+
+To regenerate the textures from a folder of OpenYAMM renders laid out as `maps/mm6/*.odm.png`, `maps/mm7/*.odm.png` and `maps/mm8/*.odm.png` (needs NumPy, SciPy, OpenCV and Pillow):
+
+```sh
+python3 scripts/build-globe.py /path/to/renders src/globe
+```
+
+The region layout lives in that script and is mirrored in the `META` constant in `src/globe/index.html`; change both together.
+
 ## Build and test
 
 ```sh

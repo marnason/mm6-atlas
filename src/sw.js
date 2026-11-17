@@ -1,4 +1,4 @@
-const CACHE='enroth-atlas-v10';
+const CACHE='enroth-atlas-v11';
 const PRECACHE=__PRECACHE__;
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(PRECACHE)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
