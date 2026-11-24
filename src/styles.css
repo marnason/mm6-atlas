@@ -255,3 +255,36 @@ body>footer{padding:10px clamp(10px,2vw,30px)}
 .mm7-rail>small:after{content:' · MM6'}
 @media(max-width:1000px){.mm7-overview{grid-template-columns:1fr}}
 @media(max-width:600px){.mm7-map-list{grid-template-columns:1fr}.mm7-guide{font-size:.76rem}}
+
+/* Stitched MM7 continent with a timetable-driven route overlay. */
+.atlas-layout.is-travel{display:block}
+.atlas-layout.is-travel .world-rail{display:none}
+.atlas-layout.is-travel .view{padding-top:12px}
+.travel-entry{margin:0 0 18px;border-color:var(--gold);color:var(--ink)}
+.travel-controls{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:7px;margin:0 0 7px}
+.travel-filters{display:flex;gap:3px;flex-wrap:wrap}
+.travel-filters a{padding:5px 8px;border:1px solid var(--line);border-radius:3px;text-decoration:none;font-size:.7rem;color:var(--muted)}
+.travel-filters a:hover,.travel-filters a.active{background:#315358;color:#fff9e9;border-color:#75999a}
+.travel-context{font-size:.73rem;color:var(--muted);margin:4px 0 8px}
+.travel-context a{color:var(--rust)}
+.travel-map{position:relative;width:min(100%,max(385px,calc((100dvh - 195px)*7/6)));aspect-ratio:7/6;overflow:hidden;background:#12304a;border:1px solid var(--line);margin-inline:auto}
+.travel-map img{display:block;width:100%;height:100%;object-fit:fill}
+.travel-map svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.travel-line{fill:none;stroke-width:3;opacity:.8;stroke-linecap:round;stroke-dasharray:7 6;filter:drop-shadow(0 1px 2px #000)}
+.travel-line.coach{stroke:#f8ce7a}
+.travel-line.ship{stroke:#92e4f4;stroke-dasharray:2 8;stroke-width:3.5}
+.travel-dot{fill:#fff7d6;stroke:#173039;stroke-width:3;filter:drop-shadow(0 2px 3px #000)}
+.travel-dot.active{fill:#eeb96c;stroke:#fff7d6;stroke-width:4}
+.travel-map svg a:hover .travel-dot,.travel-map svg a:focus-visible .travel-dot{fill:#fff;stroke:#e69d52;stroke-width:5}
+.travel-label{fill:#fff9ea;paint-order:stroke;stroke:#12252b;stroke-width:6;stroke-linejoin:round;font:700 17px system-ui,sans-serif;letter-spacing:.025em}
+.travel-map svg a:hover .travel-label,.travel-map svg a:focus-visible .travel-label{fill:#ffdf9f}
+.travel-legend{position:absolute;right:8px;bottom:8px;display:flex;gap:11px;padding:5px 8px;background:#11252cdd;color:#fff8e9;font-size:.69rem}
+.travel-legend .coach{color:#f8ce7a}.travel-legend .ship{color:#92e4f4}
+.travel-results{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:6px;margin-top:10px}
+.travel-results>p{grid-column:1/-1;margin:0 0 4px;font-size:.7rem;color:var(--muted)}
+.travel-route{display:grid;grid-template-columns:18px 1fr auto;gap:2px 8px;align-items:center;min-width:0;padding:8px 10px;background:var(--card,#fff9ec);border:1px solid var(--line)}
+.travel-mode.coach{color:#c49441}.travel-mode.ship{color:#62b7ca}
+.travel-route strong{font-size:.76rem;grid-column:2/4}.travel-route strong span{color:var(--muted)}
+.travel-route small{grid-column:2;font-size:.65rem;color:var(--muted)}
+.travel-route>a{grid-column:3;font-size:.65rem;color:var(--rust);white-space:nowrap}
+@media(max-width:700px){.travel-map{width:100%;min-height:0}.travel-label{font-size:23px;stroke-width:8}.travel-line{stroke-width:5}.travel-dot{stroke-width:5}.travel-filters a{padding:5px 6px}}

@@ -2,7 +2,7 @@ import { access, readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 const root = path.resolve(import.meta.dirname, '..');
 const dist = path.join(root, 'dist');
-for (const file of ['index.html', 'app.js', 'styles.css', 'data.js', 'openyamm-data.js', 'items-data.js', 'mm7-data.js', 'sw.js', 'manifest.webmanifest']) await access(path.join(dist, file));
+for (const file of ['index.html', 'app.js', 'styles.css', 'data.js', 'openyamm-data.js', 'items-data.js', 'mm7-data.js', 'mm7-travel-data.js', 'sw.js', 'manifest.webmanifest']) await access(path.join(dist, file));
 for (const file of ['globe/index.html', 'globe/img/world.webp', 'globe/img/enroth.webp', 'globe/img/jadame.webp', 'globe/img/antagarich.webp']) await access(path.join(dist, file));
 const globe = await readFile(path.join(dist, 'globe/index.html'), 'utf8');
 for (const [, image] of globe.matchAll(/"img":"(maps\/[^"]+)"/g)) await access(path.join(dist, 'globe', image));
@@ -49,6 +49,16 @@ for (const page of mm7Pages) {
 }
 if (!mm7Pages.some(page => page.id === 'items' && page.entries.some(entry => entry.title.includes('Abbey Normal Golem Head')))) throw new Error('MM7 item rows missing from search');
 if (!serviceWorker.includes('assets/mm7/maps/avlee.gif')) throw new Error('MM7 map missing from offline cache');
+const travelSource = await readFile(path.join(dist, 'mm7-travel-data.js'), 'utf8');
+const travelMatch = travelSource.match(/^window\.MM7_TRAVEL=(.*);\s*$/s);
+if (!travelMatch) throw new Error('Invalid MM7 travel bundle');
+const travel = JSON.parse(travelMatch[1]);
+if (travel.services.length !== 13 || travel.trips.length !== 78) throw new Error('Incomplete MM7 transportation schedule');
+for (const trip of travel.trips) if (!travel.positions[trip.origin] || !travel.positions[trip.destination]) throw new Error(`Unmapped MM7 trip: ${trip.origin} to ${trip.destination}`);
+if (!travel.trips.some(trip => trip.origin === 'Harmondale' && trip.destination === 'Arena' && trip.day === 'Sunday')) throw new Error('Arena route missing');
+if (!travel.trips.some(trip => trip.service === 'Sea Sprite' && trip.destination === 'Bracada Desert')) throw new Error('Bracada route typo was not normalized');
+if (!serviceWorker.includes('globe/img/antagarich.webp') || !serviceWorker.includes('mm7-travel-data.js')) throw new Error('MM7 travel map is not available offline');
 console.log(`Verified ${pages.length} pages and all ${pages.reduce((n, p) => n + p.images.length, 0)} referenced images.`);
 console.log(`Verified ${openyamm.maps.length} detailed maps and ${openyamm.maps.reduce((count, map) => count + map.pois.length, 0)} mapped places.`);
 console.log(`Verified ${mm7Pages.length} MM7 pages and linked offline images.`);
+console.log(`Verified ${travel.services.length} MM7 travel services and ${travel.trips.length} scheduled trips.`);
