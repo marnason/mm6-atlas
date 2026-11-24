@@ -4,28 +4,34 @@ on:
     branches: [main]
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
   pages: write
-  id-token: write
 concurrency:
   group: pages
   cancel-in-progress: true
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: npm test
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-      - name: Deploy
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Publish built site to gh-pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git fetch origin gh-pages
+          git worktree add --detach ../pages-publish origin/gh-pages
+          find ../pages-publish -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a dist/. ../pages-publish/
+          touch ../pages-publish/.nojekyll
+          git -C ../pages-publish add -A
+          if ! git -C ../pages-publish diff --cached --quiet; then
+            git -C ../pages-publish -c user.name='Enroth Atlas' -c user.email='atlas@users.noreply.github.com' commit -m "Publish ${GITHUB_SHA}"
+            git -C ../pages-publish push origin HEAD:gh-pages
+          fi
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/pages/builds"

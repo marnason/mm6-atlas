@@ -2,6 +2,8 @@
 
 The atlas now includes a mirrored, searchable Might and Magic VII guide from Mike's RPG Center alongside the Might and Magic VI map and item database. Open `#/mm7` for the MM7 index and maps. The global search covers both games. Source material is cached for offline use by the service worker after the first load.
 
+GitHub Pages publishes the generated `dist/` site from the `gh-pages` branch. The workflow builds and checks every push to `main`, updates that branch, and requests a Pages build. The explicit build request is needed because GitHub does not trigger a Pages build for commits pushed with a workflow `GITHUB_TOKEN`.
+
 To refresh the MM7 mirror, run `uv run --with beautifulsoup4 python scripts/import-mikes-mm7.py`, then `npm test`. The import follows guide links within Mike's `/mm7/` section and copies referenced content images. Its `DELAY` constant controls request spacing.
 
 A responsive, searchable, installable, offline-first single-page restoration of the Magic Grounds *Might and Magic VI* Places guide.
