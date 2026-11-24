@@ -4,6 +4,7 @@ const atlasMaps = window.OPENYAMM?.maps || [];
 const itemData = window.ATLAS_ITEMS || {items:[],exchanges:[]};
 const mm7Pages = window.MM7_PAGES || [];
 const mm7ById = new Map(mm7Pages.map(page => [page.id, page]));
+const mm7Travel = window.MM7_TRAVEL || {days:[],services:[],trips:[]};
 const mapRegions = [...atlasMaps].sort((a,b) => a.id[4].localeCompare(b.id[4]) || a.id[3].localeCompare(b.id[3])).map(map => map.region);
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -35,6 +36,10 @@ function parseRoute() {
   const [rawName, value] = path.split('/');
   const name = rawName || 'map';
   if (name === 'regions') return {name:'redirect', href:'#/map'};
+  if (name === 'mm7' && value === 'travel-map') {
+    const params = new URLSearchParams(search);
+    return {name:'travel-map', day:mm7Travel.days.includes(params.get('day')) ? params.get('day') : 'All', mode:['coach','ship'].includes(params.get('mode')) ? params.get('mode') : 'all', origin:params.get('from') || ''};
+  }
   if (name === 'mm7') {
     const id = path.split('/').slice(1).join('/') || 'index';
     const page = mm7ById.get(id);
@@ -70,7 +75,8 @@ function go(href, replace = false) {
 
 const crumb = (label, href) => href ? '<a href="' + href + '" data-link>' + esc(label) + '</a>' : '<span aria-current="page">' + esc(label) + '</span>';
 function renderNavigation() {
-  const parts = route.name === 'mm7' ? [crumb('MM7', route.page.id === 'index' ? null : '#/mm7')] : [crumb('World map', route.name === 'map' ? null : '#/map')];
+  const parts = route.name === 'mm7' || route.name === 'travel-map' ? [crumb('MM7', route.name === 'mm7' && route.page.id === 'index' ? null : '#/mm7')] : [crumb('World map', route.name === 'map' ? null : '#/map')];
+  if (route.name === 'travel-map') parts.push(crumb('Travel map'));
   if (route.name === 'mm7' && route.page.id !== 'index') {
     if (route.page.id.startsWith('maps/')) parts.push(crumb('Maps', '#/mm7/maps'));
     parts.push(crumb(route.page.title));
@@ -85,7 +91,7 @@ function renderNavigation() {
   $('#breadcrumbs').innerHTML = parts.join('<span class="crumb-separator" aria-hidden="true">/</span>');
   $('#back-button').hidden = route.name === 'map' || !history.state?.atlas;
   document.querySelectorAll('.primary-nav a').forEach(link => {
-    const current = link.dataset.route === route.name || (['region','guide','place'].includes(route.name) && link.dataset.route === 'map');
+    const current = link.dataset.route === route.name || (route.name === 'travel-map' && link.dataset.route === 'mm7') || (['region','guide','place'].includes(route.name) && link.dataset.route === 'map');
     link.classList.toggle('active', current);
     if (current) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
   });
@@ -115,10 +121,46 @@ function renderMM7() {
   if (page.id === 'index') {
     const sections = mm7Pages.filter(item => !item.id.includes('/') && item.id !== 'index');
     const maps = mm7Pages.filter(item => item.id.startsWith('maps/'));
-    return heading('Might and Magic VII · MAW','Antagarich field guide',mm7Pages.length + ' mirrored pages · searchable and available offline after the first visit') + '<div class="mm7-overview"><section><h2>Guide sections</h2><div class="mm7-grid">' + sections.map(mm7Row).join('') + '</div></section><section><h2>Map index · ' + maps.length + '</h2><p>Regional maps, dungeons and keyed locations from Mike’s RPG Center.</p><a class="mm7-map-entry" href="#/mm7/maps" data-link>Explore all ' + maps.length + ' maps <span>→</span></a><p>Search an item, trainer, quest, or location from the field above to jump directly to its source entry.</p></section></div>';
+    return heading('Might and Magic VII · MAW','Antagarich field guide',mm7Pages.length + ' mirrored pages · searchable and available offline after the first visit') + '<a class="mm7-map-entry travel-entry" href="#/mm7/travel-map" data-link>Explore the Antagarich travel map <span>→</span></a><div class="mm7-overview"><section><h2>Guide sections</h2><div class="mm7-grid">' + sections.map(mm7Row).join('') + '</div></section><section><h2>Map index · ' + maps.length + '</h2><p>Regional maps, dungeons and keyed locations from Mike’s RPG Center.</p><a class="mm7-map-entry" href="#/mm7/maps" data-link>Explore all ' + maps.length + ' maps <span>→</span></a><p>Search an item, trainer, quest, or location from the field above to jump directly to its source entry.</p></section></div>';
   }
   const map = page.id.startsWith('maps/');
-  return heading('Might and Magic VII · ' + page.section,page.title,'','<a class="text-link" href="' + (map ? '#/mm7/maps' : '#/mm7') + '" data-link>' + (map ? 'All maps' : 'MM7 index') + ' →</a>') + '<article class="mm7-guide' + (map ? ' mm7-map-guide' : '') + '">' + page.html + '</article><p class="guide-source">Source: <a href="https://www.mikesrpgcenter.com/mm7/' + encodeURI(page.sourcePath) + '" target="_blank" rel="noopener">Mike’s RPG Center ↗</a> · <a href="LICENSE.md">Credits and rights</a></p>';
+  const action = page.id === 'transportation' ? '<a class="text-link" href="#/mm7/travel-map" data-link>Continent travel map →</a>' : '<a class="text-link" href="' + (map ? '#/mm7/maps' : '#/mm7') + '" data-link>' + (map ? 'All maps' : 'MM7 index') + ' →</a>';
+  return heading('Might and Magic VII · ' + page.section,page.title,'',action) + '<article class="mm7-guide' + (map ? ' mm7-map-guide' : '') + '">' + page.html + '</article><p class="guide-source">Source: <a href="https://www.mikesrpgcenter.com/mm7/' + encodeURI(page.sourcePath) + '" target="_blank" rel="noopener">Mike’s RPG Center ↗</a> · <a href="LICENSE.md">Credits and rights</a></p>';
+}
+const travelCoords = mm7Travel.positions || {};
+const travelXY = name => travelCoords[name] || [500,428];
+function travelURL(day=route.day,mode=route.mode,origin=route.origin) {
+  const params = new URLSearchParams();
+  if (day !== 'All') params.set('day',day);
+  if (mode !== 'all') params.set('mode',mode);
+  if (origin) params.set('from',origin);
+  return '#/mm7/travel-map' + (params.size ? '?' + params : '');
+}
+function renderTravelMap() {
+  const origins = [...new Set(mm7Travel.services.map(service => service.origin))];
+  const origin = origins.includes(route.origin) ? route.origin : '';
+  const trips = mm7Travel.trips.filter(trip => (route.day === 'All' || trip.day === route.day) && (route.mode === 'all' || trip.mode === route.mode) && (!origin || trip.origin === origin));
+  const routes = new Map();
+  for (const trip of trips) {
+    const key = [trip.service,trip.destination,trip.days].join('|');
+    if (!routes.has(key)) routes.set(key,{...trip,weekdays:[]});
+    routes.get(key).weekdays.push(trip.day.slice(0,3));
+  }
+  const lines = [...new Map([...routes.values()].map(trip => [[trip.origin,trip.destination,trip.mode].join('|'),trip])).values()];
+  const lineMarkup = lines.map(trip => {
+    const [x1,y1]=travelXY(trip.origin),[x2,y2]=travelXY(trip.destination);
+    const dx=x2-x1,dy=y2-y1,curve=Math.min(45,Math.hypot(dx,dy)*.11)*(trip.mode === 'ship' ? 1 : -1);
+    const mx=(x1+x2)/2-dy/Math.max(1,Math.hypot(dx,dy))*curve,my=(y1+y2)/2+dx/Math.max(1,Math.hypot(dx,dy))*curve;
+    return '<path class="travel-line ' + trip.mode + '" d="M'+x1+' '+y1+' Q'+Math.round(mx)+' '+Math.round(my)+' '+x2+' '+y2+'"><title>'+esc(trip.origin+' → '+trip.destination+' · '+trip.mode)+'</title></path>';
+  }).join('');
+  const nodes = Object.keys(travelCoords).map(name => {
+    const [x,y]=travelXY(name),active=origin === name;
+    return '<a href="'+travelURL(route.day,route.mode,active ? '' : name)+'" data-link aria-label="'+esc(active ? 'Show all departures' : 'Show departures from '+name)+'"><circle cx="'+x+'" cy="'+y+'" r="'+(active?10:7)+'" class="travel-dot'+(active?' active':'')+'"/><text x="'+x+'" y="'+(y-15)+'" text-anchor="middle" class="travel-label">'+esc(name)+'</text></a>';
+  }).join('');
+  const dayButtons = ['All',...mm7Travel.days].map(day => '<a class="'+(route.day===day?'active':'')+'" href="'+travelURL(day,route.mode,origin)+'" data-link>'+esc(day==='All'?'Any day':day.slice(0,3))+'</a>').join('');
+  const modeButtons = [['all','All'],['coach','Coach'],['ship','Ship']].map(([mode,label]) => '<a class="'+(route.mode===mode?'active':'')+'" href="'+travelURL(route.day,mode,origin)+'" data-link>'+label+'</a>').join('');
+  const routeRows = [...routes.values()].sort((a,b)=>a.origin.localeCompare(b.origin)||a.destination.localeCompare(b.destination)||a.service.localeCompare(b.service)).map(trip => '<div class="travel-route"><span class="travel-mode '+trip.mode+'">'+(trip.mode==='ship'?'⚓':'◆')+'</span><strong>'+esc(trip.origin)+' <span>→</span> '+esc(trip.destination)+'</strong><small>'+esc(trip.service)+' · '+trip.days+' days · '+trip.weekdays.join(', ')+'</small><a href="'+(trip.destination==='Arena'?'#/mm7/maps':'#/mm7/maps/'+(trip.destination==='Evenmorn Island'?'evenmornisland':trip.destination.toLowerCase().replace(/[^a-z0-9]+/g,'')))+'" data-link>'+(trip.destination==='Arena'?'Map index':'Region map')+' →</a></div>').join('');
+  return heading('Might and Magic VII · Antagarich','Travel map','The continent terrain and scheduled coach and ship routes in one view.') + '<div class="travel-controls"><div class="travel-filters" aria-label="Weekday">'+dayButtons+'</div><div class="travel-filters" aria-label="Travel mode">'+modeButtons+'</div></div><p class="travel-context">'+(origin ? 'Departures from <strong>'+esc(origin)+'</strong> · <a href="'+travelURL(route.day,route.mode,'')+'" data-link>Show all routes</a>' : 'Click a region to see its departures')+' · '+routes.size+' scheduled routes</p><div class="travel-map"><img src="globe/img/antagarich.webp" alt="Stitched Antagarich terrain map from OpenYAMM regional renders" draggable="false"><svg viewBox="0 0 1000 857" role="img" aria-label="Coach and ship routes across Antagarich" preserveAspectRatio="none">'+lineMarkup+nodes+'</svg><div class="travel-legend"><span class="coach">◆ Coach</span><span class="ship">● Ship</span></div></div><div class="travel-results">'+(route.day==='All'?'<p>Travel time is shown in game days. Select a weekday to see which services run then.</p>':'')+routeRows+'</div><p class="map-credit">Travel schedules: <a href="https://www.mikesrpgcenter.com/mm7/transportation.html" target="_blank" rel="noopener">Mike’s RPG Center</a>. Terrain and approximate region placement: <a href="https://github.com/pjasicek/openyamm" target="_blank" rel="noopener">OpenYAMM</a> via this atlas’s stitched globe texture. Lines show connections, not in-game roads or sailing courses. <a href="LICENSE.md">Credits</a></p>';
 }
 function guideRow(page, index) {
   const excerpt = page.body.replace(/\s+/g,' ').slice(0,130);
@@ -281,14 +323,15 @@ function render(moveFocus = false) {
   if (route.name === 'place') { go(placeURL(route.map,route.poi), true); return; }
   $('.atlas-layout').classList.toggle('is-world', route.name === 'map');
   $('.app-shell').classList.toggle('is-world', route.name === 'map');
+  $('.atlas-layout').classList.toggle('is-travel', route.name === 'travel-map');
   renderNavigation();
   $('#search-input').value = route.name === 'search' ? route.query : '';
   if (route.name === 'search') searchTerm = route.query;
-  const views = {map:renderMap,mm7:renderMM7,region:()=>renderRegion(route.region),guide:()=>renderGuide(route.page),items:renderItems,search:renderSearch,about:renderAbout};
+  const views = {map:renderMap,mm7:renderMM7,'travel-map':renderTravelMap,region:()=>renderRegion(route.region),guide:()=>renderGuide(route.page),items:renderItems,search:renderSearch,about:renderAbout};
   $('#view').innerHTML = views[route.name]?.() || heading('Lost passage','Page not found') + '<a class="text-link" href="#/map" data-link>Return to the map →</a>';
   setupRegionMap();
   if (route.name === 'search') searchResults();
-  const label = route.name === 'guide' || route.name === 'mm7' ? route.page.title : route.name === 'place' ? route.poi.n : route.name === 'region' ? route.region : route.name === 'map' ? 'World Map' : route.name[0].toUpperCase() + route.name.slice(1);
+  const label = route.name === 'guide' || route.name === 'mm7' ? route.page.title : route.name === 'place' ? route.poi.n : route.name === 'region' ? route.region : route.name === 'map' ? 'World Map' : route.name === 'travel-map' ? 'Antagarich Travel Map' : route.name[0].toUpperCase() + route.name.slice(1);
   document.title = label + ' — Enroth Atlas';
   if (moveFocus) {
     if (route.name === 'mm7' && route.anchor) requestAnimationFrame(() => document.getElementById(route.anchor)?.scrollIntoView?.());
