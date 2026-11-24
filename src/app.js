@@ -2,6 +2,8 @@ const pages = window.ATLAS_PAGES || [];
 const regions = [...new Set(pages.map(page => page.region))].sort();
 const atlasMaps = window.OPENYAMM?.maps || [];
 const itemData = window.ATLAS_ITEMS || {items:[],exchanges:[]};
+const mm7Pages = window.MM7_PAGES || [];
+const mm7ById = new Map(mm7Pages.map(page => [page.id, page]));
 const mapRegions = [...atlasMaps].sort((a,b) => a.id[4].localeCompare(b.id[4]) || a.id[3].localeCompare(b.id[3])).map(map => map.region);
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -33,6 +35,11 @@ function parseRoute() {
   const [rawName, value] = path.split('/');
   const name = rawName || 'map';
   if (name === 'regions') return {name:'redirect', href:'#/map'};
+  if (name === 'mm7') {
+    const id = path.split('/').slice(1).join('/') || 'index';
+    const page = mm7ById.get(id);
+    return page ? {name, page, anchor:new URLSearchParams(search).get('anchor')} : {name:'not-found'};
+  }
   if (name === 'region' && legacyRegionBySlug.has(value)) return {name:'redirect', href:regionURL(legacyRegionBySlug.get(value)) + (search ? '?' + search : '')};
   if (name === 'region' && regionBySlug.has(value)) {
     const params = new URLSearchParams(search);
@@ -63,7 +70,11 @@ function go(href, replace = false) {
 
 const crumb = (label, href) => href ? '<a href="' + href + '" data-link>' + esc(label) + '</a>' : '<span aria-current="page">' + esc(label) + '</span>';
 function renderNavigation() {
-  const parts = [crumb('World map', route.name === 'map' ? null : '#/map')];
+  const parts = route.name === 'mm7' ? [crumb('MM7', route.page.id === 'index' ? null : '#/mm7')] : [crumb('World map', route.name === 'map' ? null : '#/map')];
+  if (route.name === 'mm7' && route.page.id !== 'index') {
+    if (route.page.id.startsWith('maps/')) parts.push(crumb('Maps', '#/mm7/maps'));
+    parts.push(crumb(route.page.title));
+  }
   if (route.name === 'region') parts.push(crumb(route.region));
   if (route.name === 'guide') parts.push(crumb(route.page.region, regionURL(route.page.region)), crumb(route.page.title));
   if (route.name === 'place') parts.push(crumb(route.map.region, regionURL(route.map.region)), crumb(route.poi.n));
@@ -78,6 +89,8 @@ function renderNavigation() {
     link.classList.toggle('active', current);
     if (current) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
   });
+  $('.world-rail').classList.toggle('mm7-rail', route.name === 'mm7');
+  $('.world-rail-heading strong').textContent = route.name === 'mm7' ? 'Enroth · MM6' : 'Enroth';
   const currentRegion = route.name === 'region' ? route.region : route.name === 'guide' ? route.page.region : null;
   $('#world-location').textContent = currentRegion || '15 regions';
   document.querySelectorAll('#world-map .map-zone').forEach(link => {
@@ -92,6 +105,20 @@ function heading(eyebrow, title, subhead = '', action = '') {
 }
 function renderMap() {
   return heading('Might and Magic VI','World map','Choose one of the 15 regions.');
+}
+function mm7URL(page) { return '#/mm7/' + page.id; }
+function mm7Row(page) {
+  return '<a class="mm7-row" href="' + mm7URL(page) + '" data-link><strong>' + esc(page.title) + '</strong><span>→</span></a>';
+}
+function renderMM7() {
+  const page = route.page;
+  if (page.id === 'index') {
+    const sections = mm7Pages.filter(item => !item.id.includes('/') && item.id !== 'index');
+    const maps = mm7Pages.filter(item => item.id.startsWith('maps/'));
+    return heading('Might and Magic VII · MAW','Antagarich field guide',mm7Pages.length + ' mirrored pages · searchable and available offline after the first visit') + '<div class="mm7-overview"><section><h2>Guide sections</h2><div class="mm7-grid">' + sections.map(mm7Row).join('') + '</div></section><section><h2>Map index · ' + maps.length + '</h2><p>Regional maps, dungeons and keyed locations from Mike’s RPG Center.</p><a class="mm7-map-entry" href="#/mm7/maps" data-link>Explore all ' + maps.length + ' maps <span>→</span></a><p>Search an item, trainer, quest, or location from the field above to jump directly to its source entry.</p></section></div>';
+  }
+  const map = page.id.startsWith('maps/');
+  return heading('Might and Magic VII · ' + page.section,page.title,'','<a class="text-link" href="' + (map ? '#/mm7/maps' : '#/mm7') + '" data-link>' + (map ? 'All maps' : 'MM7 index') + ' →</a>') + '<article class="mm7-guide' + (map ? ' mm7-map-guide' : '') + '">' + page.html + '</article><p class="guide-source">Source: <a href="https://www.mikesrpgcenter.com/mm7/' + encodeURI(page.sourcePath) + '" target="_blank" rel="noopener">Mike’s RPG Center ↗</a> · <a href="LICENSE.md">Credits and rights</a></p>';
 }
 function guideRow(page, index) {
   const excerpt = page.body.replace(/\s+/g,' ').slice(0,130);
@@ -151,12 +178,18 @@ function searchResults() {
   const places = words.length ? allPlaces.filter(({map,poi}) => !guideForPlace(map,poi) && words.every(word => (poi.n + ' ' + map.region + ' ' + placeType(poi) + ' ' + (poi.d || '') + ' ' + (poi.people || []).join(' ')).toLowerCase().includes(word))).map(item => ({kind:'place',name:item.poi.n,...item})) : [];
   const items = words.length ? itemData.items.filter(item => words.every(word => (item.name + ' ' + item.kind + ' ' + item.kind + 's unique item ' + item.slot + ' ' + item.description).toLowerCase().includes(word))).map(item => ({kind:'item',name:item.name,item})) : [];
   const exchanges = words.length ? itemData.exchanges.filter(item => words.every(word => (item.item + ' ' + (item.aliases || []).join(' ') + ' ' + item.buyer + ' ' + item.region + ' ' + item.note + ' ' + (item.gold ? 'gold' : 'quest')).toLowerCase().includes(word))).map(item => ({kind:'exchange',name:item.item,item})) : [];
-  const matches = [...guides,...places,...items,...exchanges].sort((a,b) => Number(b.name.toLowerCase().startsWith(searchTerm.toLowerCase())) - Number(a.name.toLowerCase().startsWith(searchTerm.toLowerCase())) || a.name.localeCompare(b.name));
-  const result = (item,index) => item.kind === 'guide' ? guideRow(item.page,index) : item.kind === 'place' ? placeRow(item.map,item.poi) : item.kind === 'item' ? itemCard(item.item) : exchangeCard(item.item);
-  $('#search-results').innerHTML = words.length ? '<p class="result-count">' + guides.length + ' guides · ' + places.length + ' mapped places · ' + items.length + ' unique items · ' + exchanges.length + ' turn-ins</p><div class="search-result-list">' + (matches.slice(0,searchLimit).map(result).join('') || '<p class="empty">No matches. Try an item, buyer, place, dungeon, or guide name.</p>') + '</div>' + (matches.length > searchLimit ? '<button class="more-button" id="more-results" type="button">Show more results (' + (matches.length - searchLimit) + ' remaining)</button>' : '') : '<div class="search-prompt"><span>⌕</span><h2>Find a place, item, or buyer</h2><p>Search ' + pages.length + ' guides, ' + allPlaces.length + ' mapped places, and ' + itemData.items.length + ' unique items.</p></div>';
+  const mm7 = words.length ? mm7Pages.flatMap(page => {
+    if (page.id === 'index') return [];
+    const entries = (page.entries || []).filter(entry => words.every(word => (entry.title + ' ' + entry.text).toLowerCase().includes(word))).map(entry => ({kind:'mm7',name:entry.title,page,entry}));
+    const pageMatch = words.every(word => (page.title + ' ' + page.body).toLowerCase().includes(word));
+    return pageMatch && (!entries.length || words.every(word => page.title.toLowerCase().includes(word))) ? [{kind:'mm7',name:page.title,page},...entries] : entries;
+  }) : [];
+  const matches = [...guides,...places,...items,...exchanges,...mm7].sort((a,b) => Number(b.name.toLowerCase().startsWith(searchTerm.toLowerCase())) - Number(a.name.toLowerCase().startsWith(searchTerm.toLowerCase())) || a.name.localeCompare(b.name));
+  const result = (item,index) => item.kind === 'guide' ? guideRow(item.page,index) : item.kind === 'place' ? placeRow(item.map,item.poi) : item.kind === 'item' ? itemCard(item.item) : item.kind === 'exchange' ? exchangeCard(item.item) : '<a class="guide-row" href="' + mm7URL(item.page) + (item.entry ? '?anchor=' + encodeURIComponent(item.entry.anchor) : '') + '" data-link><span class="guide-number">VII</span><span class="guide-summary"><strong>' + esc(item.name) + '</strong><small>' + esc(item.page.title + ' · ' + (item.entry ? item.entry.text : item.page.body).slice(0,130)) + '…</small></span><span class="guide-arrow">→</span></a>';
+  $('#search-results').innerHTML = words.length ? '<p class="result-count">MM6: ' + guides.length + ' guides · ' + places.length + ' places · ' + items.length + ' unique items · ' + exchanges.length + ' turn-ins &nbsp;|&nbsp; MM7: ' + mm7.length + ' results</p><div class="search-result-list">' + (matches.slice(0,searchLimit).map(result).join('') || '<p class="empty">No matches. Try an item, buyer, place, dungeon, or guide name.</p>') + '</div>' + (matches.length > searchLimit ? '<button class="more-button" id="more-results" type="button">Show more results (' + (matches.length - searchLimit) + ' remaining)</button>' : '') : '<div class="search-prompt"><span>⌕</span><h2>Search MM6 and MM7</h2><p>Search ' + pages.length + ' MM6 guides, ' + allPlaces.length + ' mapped places, ' + itemData.items.length + ' unique items, and ' + mm7Pages.length + ' MM7 pages.</p></div>';
 }
-function renderSearch() { return heading('Full atlas search','Search the atlas','Find places, Artifacts, Relics, item buyers, and guides.') + '<div id="search-results"></div>'; }
-function renderAbout() { return heading('Preservation note','About this atlas') + '<div class="about-copy"><p>Enroth Atlas combines recovered Magic Grounds maps and notes with high-resolution region maps and location data exported from OpenYAMM. All site data and map images are bundled for offline use once the site has been visited.</p><p>The archive contains ' + pages.length + ' searchable guides and ' + allPlaces.length + ' mapped places across ' + regions.length + ' regions. Map X/Y coordinates are approximate in-game locations, not real-world GPS. See the <a href="LICENSE.md">source credits and license</a> or <a href="https://github.com/marnason/mm6-atlas">project repository</a>.</p><p>This is an unofficial fan project and is not affiliated with Ubisoft or New World Computing.</p></div>'; }
+function renderSearch() { return heading('Full atlas search','Search the atlas','Find MM6 and MM7 places, items, quests, maps, and guides.') + '<div id="search-results"></div>'; }
+function renderAbout() { return heading('Preservation note','About this atlas') + '<div class="about-copy"><p>Enroth Atlas combines Magic Grounds and OpenYAMM data for Might and Magic VI with ' + mm7Pages.length + ' mirrored Might and Magic VII guide pages from Mike’s RPG Center. Search covers both games, and site data and maps are bundled for offline use after the first visit.</p><p>MM6 has ' + pages.length + ' guides and ' + allPlaces.length + ' mapped places across ' + regions.length + ' regions. Map X/Y coordinates are in-game locations. Mike’s MM7 walkthrough covers the Light path; Dark-path material and Might and Magic VIII are not yet complete in this atlas.</p><p>See the <a href="LICENSE.md">source credits and license</a> or <a href="https://github.com/marnason/mm6-atlas">project repository</a>. This is an unofficial fan project and is not affiliated with Ubisoft or New World Computing.</p></div>'; }
 function setupRegionMap() {
   const column = $('.region-map-column');
   if (!column) return;
@@ -251,13 +284,17 @@ function render(moveFocus = false) {
   renderNavigation();
   $('#search-input').value = route.name === 'search' ? route.query : '';
   if (route.name === 'search') searchTerm = route.query;
-  const views = {map:renderMap,region:()=>renderRegion(route.region),guide:()=>renderGuide(route.page),items:renderItems,search:renderSearch,about:renderAbout};
+  const views = {map:renderMap,mm7:renderMM7,region:()=>renderRegion(route.region),guide:()=>renderGuide(route.page),items:renderItems,search:renderSearch,about:renderAbout};
   $('#view').innerHTML = views[route.name]?.() || heading('Lost passage','Page not found') + '<a class="text-link" href="#/map" data-link>Return to the map →</a>';
   setupRegionMap();
   if (route.name === 'search') searchResults();
-  const label = route.name === 'guide' ? route.page.title : route.name === 'place' ? route.poi.n : route.name === 'region' ? route.region : route.name === 'map' ? 'World Map' : route.name[0].toUpperCase() + route.name.slice(1);
+  const label = route.name === 'guide' || route.name === 'mm7' ? route.page.title : route.name === 'place' ? route.poi.n : route.name === 'region' ? route.region : route.name === 'map' ? 'World Map' : route.name[0].toUpperCase() + route.name.slice(1);
   document.title = label + ' — Enroth Atlas';
-  if (moveFocus) {window.scrollTo(0,0); $('#view').focus({preventScroll:true});}
+  if (moveFocus) {
+    if (route.name === 'mm7' && route.anchor) requestAnimationFrame(() => document.getElementById(route.anchor)?.scrollIntoView?.());
+    else window.scrollTo(0,0);
+    $('#view').focus({preventScroll:true});
+  }
 }
 document.addEventListener('click', event => {
   const link = event.target.closest('a[data-link], a[data-route]');

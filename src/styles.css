@@ -221,3 +221,37 @@ body>footer{padding:10px clamp(10px,2vw,30px)}
 :root[data-theme=dark] .about-copy a{color:#e9bc91}
 :root[data-theme=dark] .search-prompt{border-color:var(--line)}
 :root[data-theme=light]{color-scheme:light}
+
+/* Mike's MM7 pages retain their source tables and anchors inside the SPA. */
+.mm7-overview{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:18px}
+.mm7-overview section{min-width:0}
+.mm7-overview h2{font:1.25rem Georgia,serif;margin:0 0 9px}
+.mm7-overview p{font-size:.75rem;color:var(--muted);margin:0 0 10px}
+.mm7-grid,.mm7-map-list{border:1px solid var(--line);background:var(--card,#fff9ec)}
+.mm7-map-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+.mm7-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;padding:8px 10px;text-decoration:none;font-size:.78rem;border-bottom:1px solid var(--line)}
+.mm7-row:hover{background:#34515733}
+.mm7-row strong{font-weight:600;overflow-wrap:anywhere}
+.mm7-row span{color:var(--rust)}
+.mm7-map-entry{display:flex;justify-content:space-between;gap:10px;padding:14px;border:1px solid var(--line);background:var(--card,#fff9ec);text-decoration:none;font-weight:700;font-size:.82rem}
+.mm7-map-entry:hover{background:#34515733}
+.mm7-map-entry span{color:var(--rust)}
+.mm7-guide{min-width:0;overflow-x:auto;color:var(--ink);font-size:.82rem;line-height:1.5}
+.mm7-guide>div{min-width:0}
+.mm7-guide a{color:var(--rust)}
+.mm7-guide h1,.mm7-guide h2,.mm7-guide h3{font-family:Georgia,serif;margin:14px 0 6px}
+.mm7-guide h2{font-size:1.25rem}
+.mm7-guide p{margin:8px 0}
+.mm7-guide img{max-width:100%;height:auto;object-fit:contain}
+.mm7-guide img[src$="mm7.gif"]{display:none}
+.mm7-map-guide img:not([src$="mm7.gif"]){display:block;max-width:min(100%,800px);margin:8px auto;border:1px solid var(--line);background:#d5c5a4}
+.mm7-guide table{border-collapse:collapse;width:100%;min-width:400px;margin:9px 0 18px}
+.mm7-guide td,.mm7-guide th{padding:6px 8px;vertical-align:top;border:1px solid var(--line);text-align:left}
+.mm7-guide tr:nth-child(even){background:#6b817015}
+.mm7-guide td img{max-width:64px;max-height:64px}
+.mm7-guide ul,.mm7-guide ol{padding-left:22px}
+.mm7-guide [id]{scroll-margin-top:68px}
+.missing-source-image{display:block;padding:12px;margin:8px 0;border:1px dashed var(--line);color:var(--muted);font-size:.72rem;text-align:center}
+.mm7-rail>small:after{content:' · MM6'}
+@media(max-width:1000px){.mm7-overview{grid-template-columns:1fr}}
+@media(max-width:600px){.mm7-map-list{grid-template-columns:1fr}.mm7-guide{font-size:.76rem}}

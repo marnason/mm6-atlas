@@ -2,7 +2,7 @@ import { access, readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 const root = path.resolve(import.meta.dirname, '..');
 const dist = path.join(root, 'dist');
-for (const file of ['index.html', 'app.js', 'styles.css', 'data.js', 'openyamm-data.js', 'items-data.js', 'sw.js', 'manifest.webmanifest']) await access(path.join(dist, file));
+for (const file of ['index.html', 'app.js', 'styles.css', 'data.js', 'openyamm-data.js', 'items-data.js', 'mm7-data.js', 'sw.js', 'manifest.webmanifest']) await access(path.join(dist, file));
 for (const file of ['globe/index.html', 'globe/img/world.webp', 'globe/img/enroth.webp', 'globe/img/jadame.webp', 'globe/img/antagarich.webp']) await access(path.join(dist, file));
 const globe = await readFile(path.join(dist, 'globe/index.html'), 'utf8');
 for (const [, image] of globe.matchAll(/"img":"(maps\/[^"]+)"/g)) await access(path.join(dist, 'globe', image));
@@ -36,5 +36,19 @@ const serviceWorker = await readFile(path.join(dist, 'sw.js'), 'utf8');
 if (serviceWorker.includes('__PRECACHE__') || !serviceWorker.includes('assets/places/World/big.jpg')) throw new Error('Offline cache manifest was not generated');
 const assets = await readdir(path.join(dist, 'assets/places'));
 if (!assets.length) throw new Error('Missing mirrored assets');
+const mm7Source = await readFile(path.join(dist, 'mm7-data.js'), 'utf8');
+const mm7Match = mm7Source.match(/^window\.MM7_PAGES=(.*);\s*$/s);
+if (!mm7Match) throw new Error('Invalid MM7 data bundle');
+const mm7Pages = JSON.parse(mm7Match[1]);
+if (mm7Pages.length < 95 || mm7Pages.filter(page => page.id.startsWith('maps/')).length < 60) throw new Error('Incomplete MM7 page mirror');
+const mm7Ids = new Set(mm7Pages.map(page => page.id));
+for (const page of mm7Pages) {
+  await access(path.join(dist, 'assets/mm7', page.sourcePath));
+  for (const [, image] of page.html.matchAll(/src="(assets\/mm7\/[^"]+)"/g)) await access(path.join(dist, image));
+  for (const [, target] of page.html.matchAll(/href="#\/mm7\/([^?"#]+)[^"]*"/g)) if (!mm7Ids.has(target)) throw new Error(`Broken MM7 guide link from ${page.id} to ${target}`);
+}
+if (!mm7Pages.some(page => page.id === 'items' && page.entries.some(entry => entry.title.includes('Abbey Normal Golem Head')))) throw new Error('MM7 item rows missing from search');
+if (!serviceWorker.includes('assets/mm7/maps/avlee.gif')) throw new Error('MM7 map missing from offline cache');
 console.log(`Verified ${pages.length} pages and all ${pages.reduce((n, p) => n + p.images.length, 0)} referenced images.`);
 console.log(`Verified ${openyamm.maps.length} detailed maps and ${openyamm.maps.reduce((count, map) => count + map.pois.length, 0)} mapped places.`);
+console.log(`Verified ${mm7Pages.length} MM7 pages and linked offline images.`);

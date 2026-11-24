@@ -1,5 +1,9 @@
 # Enroth Atlas
 
+The atlas now includes a mirrored, searchable Might and Magic VII guide from Mike's RPG Center alongside the Might and Magic VI map and item database. Open `#/mm7` for the MM7 index and maps. The global search covers both games. Source material is cached for offline use by the service worker after the first load.
+
+To refresh the MM7 mirror, run `uv run --with beautifulsoup4 python scripts/import-mikes-mm7.py`, then `npm test`. The import follows guide links within Mike's `/mm7/` section and copies referenced content images. Its `DELAY` constant controls request spacing.
+
 A responsive, searchable, installable, offline-first single-page restoration of the Magic Grounds *Might and Magic VI* Places guide.
 
 The atlas also includes 15 higher-resolution region maps, 646 mapped places, 30 named MM6 Artifacts and Relics, and documented item turn-ins derived from OpenYAMM. Coordinates are approximate in-game X/Y positions, not real-world GPS. OpenYAMM source and asset credits are in [LICENSE.md](LICENSE.md).

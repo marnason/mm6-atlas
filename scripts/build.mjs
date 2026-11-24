@@ -30,6 +30,7 @@ await mkdir(path.join(out, 'assets'), { recursive: true });
 await cp(path.join(root, 'src'), out, { recursive: true });
 await cp(path.join(root, 'LICENSE.md'), path.join(out, 'LICENSE.md'));
 await cp(source, path.join(out, 'assets/places'), { recursive: true });
+await cp(path.join(root, 'source-mirror/www.mikesrpgcenter.com/mm7'), path.join(out, 'assets/mm7'), { recursive: true });
 
 const files = (await walk(source)).filter(file => /\.html?$/i.test(file));
 const pages = [];
